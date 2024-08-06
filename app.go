@@ -1,4 +1,5 @@
 // Will possibly be the main driver file for the app
+<<<<<<< HEAD
 // App
 package main
 
@@ -47,4 +48,20 @@ func main() {
 	router.HandleFunc("/view/", viewHandler)
 	router.HandleFunc("/edit/", editHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
+=======
+package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+func helloPage(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, "Hello, world!")
+}
+
+func main() {
+	http.HandleFunc("/", helloPage)
+	http.ListenAndServe(" ", nil)
+>>>>>>> 9d2378eb8e715ce6337363f977f5bcff34e3c573
 }
