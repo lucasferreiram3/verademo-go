@@ -1,13 +1,13 @@
-// Will possibly be the main driver file for the app
-<<<<<<< HEAD
-// App
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
+	db "verademo/go/src-app/shared/db"
 
 	"github.com/gorilla/mux"
 )
@@ -18,6 +18,7 @@ type Page struct {
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Print("view")
 	title := r.URL.Path[len("/view/"):]
 	p, _ := loadPage(title)
 	t, _ := template.ParseFiles("view.html")
@@ -43,25 +44,18 @@ func loadPage(title string) (*Page, error) {
 	return &Page{Title: title, Body: body}, nil
 }
 
-func main() {
-	router := mux.NewRouter()
-	router.HandleFunc("/view/", viewHandler)
-	router.HandleFunc("/edit/", editHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
-=======
-package main
+func feedHandler(w http.ResponseWriter, r *http.Request) {
 
-import (
-	"fmt"
-	"net/http"
-)
-
-func helloPage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "Hello, world!")
 }
 
 func main() {
-	http.HandleFunc("/", helloPage)
-	http.ListenAndServe(" ", nil)
->>>>>>> 9d2378eb8e715ce6337363f977f5bcff34e3c573
+	var database *sql.DB
+	database, _ = db.InitDB()
+	fmt.Print("s")
+	router := mux.NewRouter()
+	router.HandleFunc("/feed", feedHandler)
+	router.HandleFunc("/view/", viewHandler)
+	router.HandleFunc("/edit/", editHandler)
+	log.Fatal(http.ListenAndServe(":8080", router))
+	database.Close()
 }
