@@ -67,8 +67,6 @@ func Routes() *mux.Router {
 	router := mux.NewRouter()
 	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 	router.HandleFunc("/tools", toolsHandler)
-	// router.HandleFunc("/view/", viewHandler)
-	// router.HandleFunc("/edit/", editHandler)
 
 	return router
 }
