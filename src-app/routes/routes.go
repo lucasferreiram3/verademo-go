@@ -68,19 +68,20 @@ func Routes() *mux.Router {
 // Set up templates
 var templates = template.Must(template.ParseGlob("templates/*.html"))
 
-func Render(w http.ResponseWriter, filename string, p []byte) {
-	err := templates.ExecuteTemplate(w, filename, p)
+// htmlData is a byte array read from our template files
+func Render(w http.ResponseWriter, filename string, htmlData []byte) {
+	err := templates.ExecuteTemplate(w, filename, htmlData)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func LoadPage(title string) (*Page, error) {
-	filename := title + ".txt"
-	body, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	return &Page{Title: title, Body: body}, nil
-}
+// func LoadPage(title string) (*Page, error) {
+// 	filename := title + ".txt"
+// 	body, err := os.ReadFile(filename)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &Page{Title: title, Body: body}, nil
+// }
