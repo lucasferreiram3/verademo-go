@@ -1,9 +1,9 @@
 package routes
 
 import (
-	"html/template"
 	"net/http"
-	"os"
+
+	"verademo-go/src-app/controllers"
 
 	"github.com/gorilla/mux"
 )
@@ -42,14 +42,22 @@ so the controllers should have similar structure and be able to process a login,
 // 	// t.Execute(w, p)
 // }
 
-func feedHandler(w http.ResponseWriter, r *http.Request) {
-	filename := "feed.html"
+// func feedHandler(w http.ResponseWriter, r *http.Request) {
+// 	filename := "feed.html"
+// 	if r.Method == "GET" {
+// 		body, _ := os.ReadFile(filename)
+// 		// if err != nil {
+// 		// 	return nil, err
+// 		// }
+// 		Render(w, filename, body)
+// 	} else if r.Method == "POST" {
+
+// 	}
+// }
+
+func toolsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		body, _ := os.ReadFile(filename)
-		// if err != nil {
-		// 	return nil, err
-		// }
-		Render(w, filename, body)
+		controllers.ShowTools(w, r)
 	} else if r.Method == "POST" {
 
 	}
@@ -58,23 +66,11 @@ func feedHandler(w http.ResponseWriter, r *http.Request) {
 func Routes() *mux.Router {
 	router := mux.NewRouter()
 	http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
-	router.HandleFunc("/feed", feedHandler)
+	router.HandleFunc("/tools", toolsHandler)
 	// router.HandleFunc("/view/", viewHandler)
 	// router.HandleFunc("/edit/", editHandler)
 
 	return router
-}
-
-// Set up templates
-var templates = template.Must(template.ParseGlob("templates/*.html"))
-
-// htmlData is a byte array read from our template files
-func Render(w http.ResponseWriter, filename string, htmlData []byte) {
-	err := templates.ExecuteTemplate(w, filename, htmlData)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }
 
 // func LoadPage(title string) (*Page, error) {

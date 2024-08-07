@@ -1,4 +1,4 @@
-module verademo/go
+module verademo-go
 
 go 1.22.5
 

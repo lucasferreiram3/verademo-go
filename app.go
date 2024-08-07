@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	router "verademo/go/src-app/routes"
-	db "verademo/go/src-app/shared/db"
+	router "verademo-go/src-app/routes"
+	db "verademo-go/src-app/shared/db"
 )
 
 func main() {
