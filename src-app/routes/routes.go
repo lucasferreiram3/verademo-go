@@ -65,10 +65,8 @@ func toolsHandler(w http.ResponseWriter, r *http.Request) {
 
 func Routes() *mux.Router {
 	router := mux.NewRouter()
-	http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
+	router.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 	router.HandleFunc("/tools", toolsHandler)
-	// router.HandleFunc("/view/", viewHandler)
-	// router.HandleFunc("/edit/", editHandler)
 
 	return router
 }
