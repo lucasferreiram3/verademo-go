@@ -9,7 +9,7 @@ import (
 var templates = template.Must(template.ParseGlob("templates/*.html"))
 
 // data is a struct with the variables to be passed into the template
-func Render(w http.ResponseWriter, filename string, data []byte) {
+func Render(w http.ResponseWriter, filename string, data any) {
 	err := templates.ExecuteTemplate(w, filename, data)
 
 	if err != nil {

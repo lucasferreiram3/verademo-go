@@ -6,5 +6,5 @@ import (
 )
 
 func ShowTools(w http.ResponseWriter, r *http.Request) {
-	view.Render(w, "tools.html", []byte{})
+	view.Render(w, "tools.html", nil)
 }

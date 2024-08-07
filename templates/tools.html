@@ -51,7 +51,7 @@
 			<p>Check the uptime of a host here by pinging it. Example: 127.0.0.1</p>
 			<form method="post" action="/ping">
 				<label for="host">Host:</label> 
-				<input type="text" name="host" value="{{ .Host }}">
+				<input type="text" name="host" {{if .Host}} value={{ .Host }} {{end}}>
 				<input type="submit" value="Check">
 			</form>
 			<pre>{{ .PingResult }}</pre>
