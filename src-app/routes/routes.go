@@ -63,10 +63,15 @@ func toolsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func Routes() *mux.Router {
 	router := mux.NewRouter()
 	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 	router.HandleFunc("/tools", toolsHandler)
+	router.HandleFunc("/login")
 
 	return router
 }
