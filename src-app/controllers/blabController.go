@@ -1,10 +1,11 @@
 package controllers
 
 import (
-	"fmt"
 	"net/http"
 	session "verademo-go/src-app/shared/session"
 	"verademo-go/src-app/shared/view"
+
+	"github.com/ian-kent/go-log/log"
 )
 
 var sqlBlabsByMe = `SELECT blabs.content, blabs.timestamp, COUNT(comments.blabber), blabs.blabid ` +
@@ -17,8 +18,17 @@ var sqlBlabsForMe = `SELECT users.username, users.blab_name, blabs.content, blab
 	`GROUP BY blabs.blabid ORDER BY blabs.timestamp DESC LIMIT {} OFFSET {};`
 
 func ShowFeed(w http.ResponseWriter, r *http.Request) {
-	current_session := session.Instance(r)
+	sess := session.Instance(r)
+	username := sess.Values["username"].(string)
 
-	fmt.Println(current_session.Values)
+	if username == "" {
+		log.Println("User is not Logged In - redirecting...")
+		http.Redirect(w, r, "login?target=feed", http.StatusFound)
+		return
+	}
+
+	log.Println("User is Logged In - continuing... UA=" + r.Header.Get("user-agent") + " U=" + username)
+
 	view.Render(w, "feed.html", nil)
+
 }
