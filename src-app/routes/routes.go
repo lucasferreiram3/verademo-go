@@ -42,18 +42,13 @@ so the controllers should have similar structure and be able to process a login,
 // 	// t.Execute(w, p)
 // }
 
-// func feedHandler(w http.ResponseWriter, r *http.Request) {
-// 	filename := "feed.html"
-// 	if r.Method == "GET" {
-// 		body, _ := os.ReadFile(filename)
-// 		// if err != nil {
-// 		// 	return nil, err
-// 		// }
-// 		Render(w, filename, body)
-// 	} else if r.Method == "POST" {
+func feedHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		controllers.ShowFeed(w, r)
+	} else if r.Method == "POST" {
 
-// 	}
-// }
+	}
+}
 
 func toolsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
@@ -66,6 +61,7 @@ func toolsHandler(w http.ResponseWriter, r *http.Request) {
 func Routes() *mux.Router {
 	router := mux.NewRouter()
 	router.HandleFunc("/tools", toolsHandler)
+	router.HandleFunc("/feed", feedHandler)
 	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 
 	return router

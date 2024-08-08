@@ -2,12 +2,10 @@ package controllers
 
 import (
 	"net/http"
+	"verademo-go/src-app/shared/view"
 )
 
-func showFeed(w http.ResponseWriter, r *http.Request) {
-	// p, err := view.LoadPage(title)
-	// if err != nil {
-	// 	p = &Page{Title: title}
-	// }
-	// view.Render(w, "edit", p)
+func ShowFeed(w http.ResponseWriter, r *http.Request) {
+
+	view.Render(w, "feed.html", nil)
 }
