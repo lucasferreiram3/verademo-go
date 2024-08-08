@@ -247,6 +247,10 @@ func ProcessRegister(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Creating session")
 	current_session := session.Instance(r)
 	current_session.Values["username"] = r.FormValue("username")
+	err := current_session.Save(r, w)
+	if err != nil {
+		log.Println("session error")
+	}
 	fmt.Println(current_session.Values)
 
 	view.Render(w, "register.html", &output)
