@@ -9,12 +9,15 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 	session "verademo-go/src-app/shared/session"
 	"verademo-go/src-app/shared/view"
 
 	"github.com/gorilla/sessions"
 )
+
+var store = sessions.NewCookieStore([]byte("secret-key"))
 
 type User struct {
 	Username     string
@@ -142,8 +145,6 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 
 	http.SetCookie(w, &http.Cookie{Name: "username", Value: result.Username})
 
-	var store = sessions.NewCookieStore([]byte("secret-key"))
-
 	// Handling the "remember me"
 	if remember == "" {
 		// Store details in session
@@ -182,17 +183,62 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	http.Redirect(w, req, nextView, http.StatusSeeOther)
 }
 
-func processLogout(w http.ResponseWriter, req *http.Request) {
+func processLogout(w http.ResponseWriter, r *http.Request) {
 	log.Println("Entering processLogout")
 
+	// Get the session
+	session, _ := store.Get(r, "session-name")
+
+	// Set the username to null (clear it)
+	session.Values["username"] = nil
+
+	// Save the session
+	err := session.Save(r, w)
+	if err != nil {
+		log.Println("Error saving session:", err)
+	}
+
+	// Optionally update response
+	/*if err := updateInResponse(session.Values["username"], w); err != nil {
+		log.Println("Error updating response:", err)
+	}*/
+
+	// Redirect to login page
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
-func showPasswordHint(w http.ResponseWriter, req *http.Request) {
-	username := req.FormValue("username")
-	log.Println("Entering password-hint with username: " + username)
+func ShowPasswordHint(w http.ResponseWriter, req *http.Request) {
+	username := req.URL.Query().Get("username")
+	log.Printf("Entering password-hint with username: %s", username)
 
-	if username != "" {
+	if username == "" {
+		http.Error(w, "No username provided, please type in your username first", http.StatusBadRequest)
 		return
+	}
+
+	// Prepare the SQL query
+	sqlQuery := "SELECT password_hint FROM users WHERE username = ?"
+	log.Println(sqlQuery)
+
+	var passwordHint string
+	err := db.QueryRow(sqlQuery, username).Scan(&passwordHint)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "No password found for "+username, http.StatusNotFound)
+		} else {
+			log.Println("Error querying database:", err)
+			http.Error(w, "ERROR!", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if len(passwordHint) > 0 {
+		formatString := fmt.Sprintf("Username '%s' has password: %s%s", username, passwordHint[:2], strings.Repeat("*", len(passwordHint)-2))
+		log.Println(formatString)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(fmt.Sprintf(`"%s"`, formatString)))
+	} else {
+		http.Error(w, "No password found for "+username, http.StatusNotFound)
 	}
 
 }

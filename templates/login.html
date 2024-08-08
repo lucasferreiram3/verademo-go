@@ -53,7 +53,7 @@
 						<h3 class="panel-title">Please provide your username and password to login to Blab</h3>
 					</div>
 					<div class="panel-body">
-						<form method="POST" action="{{ .Action }}">
+						<form method="POST" action="login">
 							<input type="hidden" name="target" value="{{ .Target }}">
 							<table class="table table-condensed">
 								<tbody>
@@ -70,7 +70,7 @@
 										<td>Password</td>
 										<td>
 											<div class="form-group">
-												<input type="password" class="form-control" name="password" value=" ">
+												<input type="password" class="form-control" name="password" value="">
 											</div>
 										</td>
 									</tr>

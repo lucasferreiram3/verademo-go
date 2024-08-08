@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"fmt"
 	"net/http"
-	"verademo-go/src-app/shared/db"
+
+	// "verademo-go/src-app/shared/db"
 	session "verademo-go/src-app/shared/session"
 	"verademo-go/src-app/shared/view"
 
@@ -32,8 +32,8 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 	log.Println("User is Logged In - continuing... UA=" + r.Header.Get("user-agent") + " U=" + username)
 
 	log.Println("Executing query to get all 'Blabs for me'")
-	blabsForMe := fmt.Sprintf(sqlBlabsForMe, 10, 0)
-	db.Db.Exec(blabsForMe, username)
+	//blabsForMe := fmt.Sprintf(sqlBlabsForMe, 10, 0)
+	//db.Db.Exec(blabsForMe, username)
 	// cursor.execute(blabsForMe % (username,))
 	// blabsForMeResults = cursor.fetchall()
 

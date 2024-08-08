@@ -43,7 +43,10 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		print("POST Reached")
 		controllers.ProcessLogin(w, r)
 	}
+}
 
+func passwordHintHandler(w http.ResponseWriter, r *http.Request) {
+	controllers.ShowPasswordHint(w, r)
 }
 
 /*
@@ -67,6 +70,7 @@ func Routes() *mux.Router {
 	router.HandleFunc("/login", loginHandler)
 	router.HandleFunc("/tools", toolsHandler)
 	router.HandleFunc("/register", registerHandler)
+	router.HandleFunc("/password-hint", passwordHintHandler)
 	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 
 	return router
