@@ -36,6 +36,19 @@ func toolsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		controllers.ShowLogin(w, r)
+	} else if r.Method == "POST" {
+		print("POST Reached")
+		controllers.ProcessLogin(w, r)
+	}
+}
+
+func passwordHintHandler(w http.ResponseWriter, r *http.Request) {
+	controllers.ShowPasswordHint(w, r)
+}
+
 /*
 Handler function used by router for register page.
 */
@@ -54,8 +67,10 @@ Creates a session store
 func Routes() *mux.Router {
 	router := mux.NewRouter()
 	router.HandleFunc("/feed", feedHandler)
+	router.HandleFunc("/login", loginHandler)
 	router.HandleFunc("/tools", toolsHandler)
 	router.HandleFunc("/register", registerHandler)
+	router.HandleFunc("/password-hint", passwordHintHandler)
 	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 
 	return router
