@@ -79,7 +79,7 @@ func ShowLogin(w http.ResponseWriter, req *http.Request) {
 	view.Render(w, "login.html", nil)
 }
 
-func processLogin(w http.ResponseWriter, req *http.Request) {
+func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	log.Println("Entering processLogin")
 
 	// Form data check
@@ -102,7 +102,7 @@ func processLogin(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Constructing SQL Query, have to figure out hashing
-	sqlQuery := fmt.Sprintf("SELECT username, password, password_hint, created_at, last_login, real_name, blab_name FROM users WHERE username='%s' AND password='%s';", username, getMD5(password))
+	sqlQuery := fmt.Sprintf("select username, password, password_hint, created_at, last_login, real_name, blab_name from users where username='", username, getMD5(password))
 	result := struct {
 		Username     string
 		PasswordHint string
@@ -133,7 +133,7 @@ func processLogin(w http.ResponseWriter, req *http.Request) {
 
 	http.SetCookie(w, &http.Cookie{Name: "username", Value: result.Username})
 
-	var store = sessions.NewCookieStore([]byte("something-very-secret"))
+	var store = sessions.NewCookieStore([]byte("secret-key"))
 
 	// Handling the "remember me"
 	if remember == "" {
@@ -162,7 +162,15 @@ func processLogin(w http.ResponseWriter, req *http.Request) {
 		session.Values["totp_username"] = result.Username
 		session.Save(req, w)
 		nextView = "/totp"
+	} else {
+		log.Println("Setting session username to: " + username)
+		session, _ := store.Get(req, "session-name")
+		session.Values["username"] = result.Username
+		session.Save(req, w)
 	}
+
+	log.Println("Redirecting to view: " + nextView)
+	http.Redirect(w, req, nextView, http.StatusSeeOther)
 }
 
 func processLogout(w http.ResponseWriter, req *http.Request) {
