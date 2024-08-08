@@ -64,6 +64,11 @@ func toolsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		controllers.ShowLogin(w, r)
+	} else if r.Method == "POST" {
+
+	}
 
 }
 
@@ -72,7 +77,7 @@ func Routes() *mux.Router {
 	router.HandleFunc("/tools", toolsHandler)
 	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 	router.HandleFunc("/tools", toolsHandler)
-	router.HandleFunc("/login")
+	router.HandleFunc("/login", loginHandler)
 
 	return router
 }

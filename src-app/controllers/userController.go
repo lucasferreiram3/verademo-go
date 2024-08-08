@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"time"
 	"verademo-go/src-app/shared/view"
+
+	"github.com/gorilla/sessions"
 )
 
 type User struct {
@@ -29,7 +31,7 @@ func getMD5(text string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func showLogin(w http.ResponseWriter, req *http.Request) {
+func ShowLogin(w http.ResponseWriter, req *http.Request) {
 	target := req.URL.Query().Get("target")
 	username := req.URL.Query().Get("username")
 
@@ -72,16 +74,17 @@ func showLogin(w http.ResponseWriter, req *http.Request) {
 	if target == "" {
 		target = ""
 	}
-	log.Println("Entering showLogin with username %s and target %s\n", username, target)
+	log.Println("Entering showLogin with username " + username + " and target " + target)
 
-	view.Render(w, "login.html", []byte{})
+	view.Render(w, "login.html", nil)
 }
 
 func processLogin(w http.ResponseWriter, req *http.Request) {
 	log.Println("Entering processLogin")
 
 	// Form data check
-	if err := req.ParseForm(); err != nil {
+	err := req.ParseForm()
+	if err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
@@ -100,71 +103,70 @@ func processLogin(w http.ResponseWriter, req *http.Request) {
 
 	// Constructing SQL Query, have to figure out hashing
 	sqlQuery := fmt.Sprintf("SELECT username, password, password_hint, created_at, last_login, real_name, blab_name FROM users WHERE username='%s' AND password='%s';", username, getMD5(password))
-	log.Println("Executing SQL Query:", sqlQuery)
+	result := struct {
+		Username     string
+		PasswordHint string
+		CreatedAt    string
+		LastLogin    string
+		RealName     string
+		BlabName     string
+	}{}
 
-	rows, err := db.Query(sqlQuery)
-
-	// Execute SQL Query
+	err = db.QueryRow(sqlQuery, username, getMD5(password)).Scan(
+		&result.Username,
+		&result.PasswordHint,
+		&result.CreatedAt,
+		&result.LastLogin,
+		&result.RealName,
+		&result.BlabName,
+	)
 	if err != nil {
-		log.Println("Error executing SQL Query:", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	// Check if user is found
-	var user User
-	if rows.Next() {
-		if err := rows.Scan(&user.Username, &user.PasswordHint, &user.CreatedAt, &user.LastLogin, &user.RealName, &user.BlabName); err != nil {
-			log.Println("Error scanning result:", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		if err == sql.ErrNoRows {
+			log.Println("User not found")
+			http.Error(w, "Login failed. Please try again.", http.StatusUnauthorized)
 			return
 		}
-		log.Println("User found:", user.Username)
-		http.SetCookie(w, &http.Cookie{Name: "username", Value: user.Username})
-
-		if remember != "" {
-			// updateInResponse needs implementation
-		}
-
-		if len(username) >= 4 && username[len(username)-4:] == "totp" {
-			log.Println("User has TOTP enabled")
-			req.Header.Set("totp_username", user.Username)
-			nextView = "/totp"
-		} else {
-			log.Println("Setting session username to:", user.Username)
-			// Update last login
-			_, err = db.Exec("UPDATE users SET last_login=NOW() WHERE username=?", user.Username)
-			if err != nil {
-				log.Println("Error updating last login:", err)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-			// Set session username
-			http.SetCookie(w, &http.Cookie{Name: "session_username", Value: user.Username})
-		}
-	} else {
-		log.Println("User Not Found")
-		http.Error(w, "Login failed. Please try again.", http.StatusUnauthorized)
-		nextView = "/login"
+		log.Println(err)
+		http.Error(w, "An error has occured", http.StatusInternalServerError)
 	}
-	log.Println("Redirecting to view:", nextView)
-	http.Redirect(w, req, nextView, http.StatusFound)
+	log.Println("User found. Redirecting...")
+
+	http.SetCookie(w, &http.Cookie{Name: "username", Value: result.Username})
+
+	var store = sessions.NewCookieStore([]byte("something-very-secret"))
+
+	// Handling the "remember me"
+	if remember == "" {
+		// Store details in session
+		session, _ := store.Get(req, "session-name")
+		session.Values["username"] = result.Username
+		session.Values["password_hint"] = result.PasswordHint
+		session.Values["created_at"] = result.CreatedAt
+		session.Values["last_login"] = result.LastLogin
+		session.Values["real_name"] = result.RealName
+		session.Values["blab_name"] = result.BlabName
+		session.Save(req, w)
+	}
+	// Updating last login time
+	_, err = db.Exec("UPDATE users SET last_login = NOW() WHERE username = ?", result.Username)
+	if err != nil {
+		log.Println()
+		http.Error(w, "An error occurred", http.StatusInternalServerError)
+		return
+	}
+
+	// TOTP Handling
+	if len(username) >= 4 && username[len(username)-4:] == "totp" {
+		log.Println("User " + username + " Has TOTP Enabled!")
+		session, _ := store.Get(req, "session-name")
+		session.Values["totp_username"] = result.Username
+		session.Save(req, w)
+		nextView = "/totp"
+	}
 }
 
 func processLogout(w http.ResponseWriter, req *http.Request) {
 	log.Println("Entering processLogout")
-
-	// Clear session username
-	http.SetCookie(w, &http.Cookie{Name: "session_username", Value: "", Path: "/", MaxAge: -1})
-
-	currentUser := &User{}
-
-	if err := updateInResponse(currentUser, w); err != nil {
-		log.Println("Error updating response:", err)
-	}
-
-	http.Redirect(w, req, "/login", http.StatusFound)
 
 }
 
@@ -175,23 +177,6 @@ func showPasswordHint(w http.ResponseWriter, req *http.Request) {
 	if username != "" {
 		return
 	}
-
-}
-
-func showRegister(w http.ResponseWriter, req *http.Request) {
-	log.Println("Entering showRegister")
-
-	view.Render(w, "register.html", []byte{})
-}
-
-func showRegisterFinish(w http.ResponseWriter, req *http.Request) {
-	log.Println("Entering showRegisterFinish")
-
-	http.Redirect(w, req, "/register-finish", http.StatusFound)
-}
-
-func processRegisterFinish(w http.ResponseWriter, req *http.Request) {
-	log.Println("Entering processRegisterFinish")
 
 }
 
