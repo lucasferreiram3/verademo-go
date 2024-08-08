@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"time"
+	session "verademo-go/src-app/shared/session"
 	"verademo-go/src-app/shared/view"
 
 	"github.com/gorilla/sessions"
@@ -22,6 +23,13 @@ type User struct {
 	LastLogin    time.Time
 	RealName     string
 	BlabName     string
+}
+type Account struct {
+	Error    string
+	Username string
+}
+type Output struct {
+	username string
 }
 
 var db *sql.DB
@@ -224,20 +232,7 @@ func updateInResponse(currentUser *User, w http.ResponseWriter) error {
 		Value: encoded,
 		Path:  "/",
 	})
-
 	return nil
-	"fmt"
-	"net/http"
-	session "verademo-go/src-app/shared/session"
-	view "verademo-go/src-app/shared/view"
-)
-
-type Account struct {
-	Error    string
-	Username string
-}
-type Output struct {
-	username string
 }
 
 func ShowRegister(w http.ResponseWriter, r *http.Request) {
