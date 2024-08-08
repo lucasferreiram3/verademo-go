@@ -59,14 +59,14 @@ func toolsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		controllers.ShowTools(w, r)
 	} else if r.Method == "POST" {
-
+		controllers.ProcessTools(w, r)
 	}
 }
 
 func Routes() *mux.Router {
 	router := mux.NewRouter()
-	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 	router.HandleFunc("/tools", toolsHandler)
+	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 
 	return router
 }

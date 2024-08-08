@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	router "verademo-go/src-app/routes"
@@ -12,7 +11,7 @@ import (
 func main() {
 	var database *sql.DB
 	database, _ = db.InitDB()
-	fmt.Print("s")
+	log.Print("test")
 
 	log.Fatal(http.ListenAndServe(":8080", router.Routes()))
 	database.Close()

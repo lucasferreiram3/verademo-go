@@ -49,7 +49,7 @@
 		</div>
 		<div>
 			<p>Check the uptime of a host here by pinging it. Example: 127.0.0.1</p>
-			<form method="post" action="/ping">
+			<form method="post" action="tools">
 				<label for="host">Host:</label> 
 				<input type="text" name="host" {{if .Host}} value={{ .Host }} {{end}}>
 				<input type="submit" value="Check">
@@ -58,7 +58,7 @@
 		</div>
 		<div>
 			<h5>Show a UNIX fortune from one of the 2 supported dictionaries.</h5>
-			<form method="post" action="/fortune">
+			<form method="post" action="tools">
 				<select name="fortunefile">
 					<option value="literature">literature</option>
 					<option value="riddles">riddles</option>
