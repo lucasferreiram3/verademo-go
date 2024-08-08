@@ -20,27 +20,6 @@ so the controllers should have similar structure and be able to process a login,
 
 */
 
-// func viewHandler(w http.ResponseWriter, r *http.Request) {
-// 	fmt.Print("view")
-// 	title := r.URL.Path[len("/view/"):]
-// 	p, err := LoadPage(title)
-// 	if err != nil {
-// 		p = &Page{Title: title}
-// 	}
-// 	Render(w, "view", p)
-// }
-
-// func editHandler(w http.ResponseWriter, r *http.Request) {
-// 	title := r.URL.Path[len("/edit/"):]
-// 	p, err := LoadPage(title)
-// 	if err != nil {
-// 		p = &Page{Title: title}
-// 	}
-// 	Render(w, "edit", p)
-// 	// t, _ := template.ParseFiles("edit.html")
-// 	// t.Execute(w, p)
-// }
-
 func feedHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		controllers.ShowFeed(w, r)
