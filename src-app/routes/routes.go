@@ -24,7 +24,7 @@ func feedHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		controllers.ShowFeed(w, r)
 	} else if r.Method == "POST" {
-
+		return
 	}
 }
 

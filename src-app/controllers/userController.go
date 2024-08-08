@@ -28,7 +28,7 @@ func ProcessRegister(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	output := Output{username: username}
 	// This might be an error due to incorrect pointer logic
-	if username != "" {
+	if username == "" {
 		output.Error = "No username provided, please type in your username first"
 		view.Render(w, "register.html", output)
 		return
