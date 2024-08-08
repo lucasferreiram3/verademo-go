@@ -2,7 +2,6 @@ package routes
 
 import (
 	"net/http"
-
 	"verademo-go/src-app/controllers"
 
 	"github.com/gorilla/mux"
@@ -58,20 +57,27 @@ func toolsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+/*
+Handler function used by router for register page.
+*/
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		controllers.ShowRegister(w, r)
+	} else if r.Method == "POST" {
+		controllers.ProcessRegister(w, r)
+	}
+}
+
+/*
+Creates a router to listen for requests
+Creates a session store
+*/
 func Routes() *mux.Router {
 	router := mux.NewRouter()
-	router.HandleFunc("/tools", toolsHandler)
 	router.HandleFunc("/feed", feedHandler)
+	router.HandleFunc("/tools", toolsHandler)
+	router.HandleFunc("/register", registerHandler)
 	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 
 	return router
 }
-
-// func LoadPage(title string) (*Page, error) {
-// 	filename := title + ".txt"
-// 	body, err := os.ReadFile(filename)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &Page{Title: title, Body: body}, nil
-// }

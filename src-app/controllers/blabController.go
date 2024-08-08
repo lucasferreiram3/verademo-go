@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
+	session "verademo-go/src-app/shared/session"
 	"verademo-go/src-app/shared/view"
 )
 
@@ -15,6 +17,8 @@ var sqlBlabsForMe = `SELECT users.username, users.blab_name, blabs.content, blab
 	`GROUP BY blabs.blabid ORDER BY blabs.timestamp DESC LIMIT {} OFFSET {};`
 
 func ShowFeed(w http.ResponseWriter, r *http.Request) {
+	current_session := session.Instance(r)
 
+	fmt.Println(current_session.Values)
 	view.Render(w, "feed.html", nil)
 }
