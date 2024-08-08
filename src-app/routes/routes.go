@@ -2,7 +2,6 @@ package routes
 
 import (
 	"net/http"
-
 	"verademo-go/src-app/controllers"
 
 	"github.com/gorilla/mux"
@@ -21,40 +20,6 @@ so the controllers should have similar structure and be able to process a login,
 
 */
 
-// func viewHandler(w http.ResponseWriter, r *http.Request) {
-// 	fmt.Print("view")
-// 	title := r.URL.Path[len("/view/"):]
-// 	p, err := LoadPage(title)
-// 	if err != nil {
-// 		p = &Page{Title: title}
-// 	}
-// 	Render(w, "view", p)
-// }
-
-// func editHandler(w http.ResponseWriter, r *http.Request) {
-// 	title := r.URL.Path[len("/edit/"):]
-// 	p, err := LoadPage(title)
-// 	if err != nil {
-// 		p = &Page{Title: title}
-// 	}
-// 	Render(w, "edit", p)
-// 	// t, _ := template.ParseFiles("edit.html")
-// 	// t.Execute(w, p)
-// }
-
-// func feedHandler(w http.ResponseWriter, r *http.Request) {
-// 	filename := "feed.html"
-// 	if r.Method == "GET" {
-// 		body, _ := os.ReadFile(filename)
-// 		// if err != nil {
-// 		// 	return nil, err
-// 		// }
-// 		Render(w, filename, body)
-// 	} else if r.Method == "POST" {
-
-// 	}
-// }
-
 func toolsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		controllers.ShowTools(w, r)
@@ -63,19 +28,26 @@ func toolsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+/*
+Handler function used by router for register page.
+*/
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		controllers.ShowRegister(w, r)
+	} else if r.Method == "POST" {
+		controllers.ProcessRegister(w, r)
+	}
+}
+
+/*
+Creates a router to listen for requests
+Creates a session store
+*/
 func Routes() *mux.Router {
 	router := mux.NewRouter()
 	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 	router.HandleFunc("/tools", toolsHandler)
+	router.HandleFunc("/register", registerHandler)
 
 	return router
 }
-
-// func LoadPage(title string) (*Page, error) {
-// 	filename := title + ".txt"
-// 	body, err := os.ReadFile(filename)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &Page{Title: title, Body: body}, nil
-// }
