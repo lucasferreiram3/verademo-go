@@ -1,13 +1,15 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
+	session "verademo-go/src-app/shared/session"
+	"verademo-go/src-app/shared/view"
 )
 
-func showFeed(w http.ResponseWriter, r *http.Request) {
-	// p, err := view.LoadPage(title)
-	// if err != nil {
-	// 	p = &Page{Title: title}
-	// }
-	// view.Render(w, "edit", p)
+func ShowFeed(w http.ResponseWriter, r *http.Request) {
+	current_session := session.Instance(r)
+
+	fmt.Println(current_session.Values)
+	view.Render(w, "feed.html", nil)
 }

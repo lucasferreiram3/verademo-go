@@ -26,4 +26,5 @@ require (
 	github.com/tidwall/rtred v0.1.2 // indirect
 	github.com/tidwall/tinyqueue v0.1.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 )
