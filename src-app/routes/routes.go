@@ -62,6 +62,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		controllers.ShowLogin(w, r)
 	} else if r.Method == "POST" {
+		print("POST Reached")
 		controllers.ProcessLogin(w, r)
 	}
 
@@ -71,9 +72,8 @@ func Routes() *mux.Router {
 	router := mux.NewRouter()
 	router.HandleFunc("/tools", toolsHandler)
 	router.HandleFunc("/feed", feedHandler)
-	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
-	router.HandleFunc("/tools", toolsHandler)
 	router.HandleFunc("/login", loginHandler)
+	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 
 	return router
 }
