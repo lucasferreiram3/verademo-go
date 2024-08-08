@@ -54,18 +54,18 @@
 				<input type="text" name="host" {{if .Host}} value={{ .Host }} {{end}}>
 				<input type="submit" value="Check">
 			</form>
-			<pre>{{ .PingResult }}</pre>
+			<pre>{{ .Ping }}</pre>
 		</div>
 		<div>
 			<h5>Show a UNIX fortune from one of the 2 supported dictionaries.</h5>
 			<form method="post" action="tools">
 				<select name="fortunefile">
-					<option value="literature">literature</option>
-					<option value="riddles">riddles</option>
+					<option value="fortune">fortune</option>
+					<option value="riddle">riddle</option>
 				</select>
 				<input type="submit" value="Change">
 			</form>
-			<pre>{{ .FortuneResult }}</pre>
+			<pre>{{ .Fortune }}</pre>
 		</div>
 	</div>
 
