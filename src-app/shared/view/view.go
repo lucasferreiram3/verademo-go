@@ -15,4 +15,5 @@ func Render(w http.ResponseWriter, filename string, data any) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+
 }
