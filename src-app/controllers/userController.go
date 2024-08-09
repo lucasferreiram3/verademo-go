@@ -3,19 +3,21 @@ package controllers
 import (
 	"crypto/md5"
 	"database/sql"
-	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	sqlite "verademo-go/src-app/shared/db"
+	session "verademo-go/src-app/shared/session"
+	view "verademo-go/src-app/shared/view"
+
+	"encoding/base64"
+	"encoding/json"
 	"strings"
 	"time"
-	"verademo-go/src-app/shared/db"
-	session "verademo-go/src-app/shared/session"
-	"verademo-go/src-app/shared/view"
 
 	"github.com/gorilla/sessions"
+	"github.com/pquerna/otp/totp"
 )
 
 var store = sessions.NewCookieStore([]byte("secret-key"))
@@ -33,11 +35,9 @@ type Account struct {
 	Username string
 }
 type Output struct {
-	username string
+	Username string
 	Error    string
 }
-
-// var db *sql.DB
 
 func getMD5(text string) string {
 	hash := md5.Sum([]byte(text))
@@ -125,7 +125,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		BlabName     string
 	}{}
 
-	err = db.Db.QueryRow(sqlQuery, username, getMD5(password)).Scan(
+	err = sqlite.DB.QueryRow(sqlQuery, username, getMD5(password)).Scan(
 		&result.Username,
 		&result.PasswordHint,
 		&result.CreatedAt,
@@ -159,7 +159,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		session.Save(req, w)
 	}
 	// Updating last login time
-	_, err = db.Db.Exec("UPDATE users SET last_login = NOW() WHERE username = ?", result.Username)
+	_, err = sqlite.DB.Exec("UPDATE users SET last_login = NOW() WHERE username = ?", result.Username)
 	if err != nil {
 		log.Println()
 		http.Error(w, "An error occurred", http.StatusInternalServerError)
@@ -187,22 +187,20 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 func processLogout(w http.ResponseWriter, r *http.Request) {
 	log.Println("Entering processLogout")
 
-	// Get the session
-	session, _ := store.Get(r, "session-name")
+	current_session, _ := store.Get(r, "session-name")
 
-	// Set the username to null (clear it)
-	session.Values["username"] = nil
+	current_session.Values["username"] = nil
 
-	// Save the session
-	err := session.Save(r, w)
+	err := current_session.Save(r, w)
 	if err != nil {
 		log.Println("Error saving session:", err)
 	}
 
 	// Optionally update response
-	/*if err := updateInResponse(session.Values["username"], w); err != nil {
-		log.Println("Error updating response:", err)
-	}*/
+	// TODO: session.Values["username"] is not a User*
+	// if err := updateInResponse(current_session.Values["username"], w); err != nil {
+	// 	log.Println("Error updating response:", err)
+	// }
 
 	// Redirect to login page
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -220,9 +218,8 @@ func ShowPasswordHint(w http.ResponseWriter, req *http.Request) {
 	// Prepare the SQL query
 	sqlQuery := "SELECT password_hint FROM users WHERE username = ?"
 	log.Println(sqlQuery)
-
 	var passwordHint string
-	err := db.Db.QueryRow(sqlQuery, username).Scan(&passwordHint)
+	err := sqlite.DB.QueryRow(sqlQuery, username).Scan(&passwordHint)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "No password found for "+username, http.StatusNotFound)
@@ -285,30 +282,96 @@ func updateInResponse(currentUser *User, w http.ResponseWriter) error {
 
 func ShowRegister(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Entering ShowRegister")
-	p := &Account{Error: "Bad"}
-	view.Render(w, "register.html", p)
+
+	view.Render(w, "register.html", nil)
 }
 func ProcessRegister(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Entering ProcessRegister")
 	username := r.FormValue("username")
-	output := Output{username: username}
+	output := Output{Username: username}
 	// This might be an error due to incorrect pointer logic
 	if username == "" {
 		output.Error = "No username provided, please type in your username first"
 		view.Render(w, "register.html", output)
 		return
 	}
-	fmt.Println()
+	log.Println("Creating database query")
+	sqlQuery := "SELECT username FROM users WHERE username = '" + username + "'"
+	log.Println(sqlQuery)
+	row := sqlite.DB.QueryRow(sqlQuery)
+	var err error
+	var expectedUser string
+	if err = row.Scan(expectedUser); err == sql.ErrNoRows {
+		view.Render(w, "register-finish.html", output)
+		return
 
-	fmt.Println("Creating session")
-	current_session := session.Instance(r)
-	current_session.Values["username"] = r.FormValue("username")
-	err := current_session.Save(r, w)
+	} else {
+		//This is the case wehre row is not empty
+		output.Error = "Username '" + username + "' already exists!"
+		view.Render(w, "register.html", output)
+		return
+	}
+
+}
+
+func ShowRegisterFinish(w http.ResponseWriter, r *http.Request) {
+	log.Println("Entering ShowRegisterFinish")
+
+	view.Render(w, "register-finish.html", nil)
+}
+func ProcessRegisterFinish(w http.ResponseWriter, r *http.Request) {
+
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+	cpassword := r.FormValue("cpassword")
+	realName := r.FormValue("realName")
+	blabName := r.FormValue("blabName")
+	output := Output{Username: username}
+	if password != cpassword {
+		log.Println("Password and Confirm Password do not match")
+		output.Error = "The Password and Confirm Password values do not match. Please try again."
+		view.Render(w, "register-finish.html", output)
+		return
+	}
+
+	// // Execute the query
+
+	//TODO: Test TOTP functionality
+	secret, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      "VeraDemo",
+		AccountName: username,
+	})
 	if err != nil {
-		log.Println("session error")
+		log.Println("Failed to generate TOTP secret.")
+		return
+	}
+	query := "insert into users (username, password, totp_secret, created_at, real_name, blab_name) values("
+	query += "'" + username + "',"
+	query += "'" + GetMD5Hash(password) + "',"
+	query += "'" + secret.Secret() + "',"
+	query += "datetime('now'),"
+	query += "'" + realName + "',"
+	query += "'" + blabName + "'"
+	query += ");"
+	log.Println(query)
+	_, err = sqlite.DB.Exec(query)
+	if err != nil {
+		log.Println(err)
+	}
+	current_session := session.Instance(r)
+	current_session.Values["username"] = username
+	err = current_session.Save(r, w)
+	if err != nil {
+		log.Println("Couldn't set session value")
 	}
 	fmt.Println(current_session.Values["username"].(string))
 
-	view.Render(w, "register.html", &output)
+	view.Render(w, "feed.html", output)
+	return
+}
+
+func GetMD5Hash(text string) string {
+	hash := md5.Sum([]byte(text))
+	return hex.EncodeToString(hash[:])
 }
