@@ -46,6 +46,13 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 
 	var outputs Outputs
 
+	// Set an error if one was given in response (usually taken from processFeed)
+	resError := w.Header().Get("errorMsg")
+	if resError != "" {
+		outputs.Error = resError
+		w.Header().Del("errorMsg")
+	}
+
 	// Get blabs from blabbers that are being listened to
 	log.Println("Executing query to get all 'Blabs for me'")
 	blabsForMe := fmt.Sprintf(sqlBlabsForMe, 10, 0)
@@ -203,4 +210,50 @@ func MoreFeed(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to write response", http.StatusInternalServerError)
 	}
 
+}
+
+func ProcessFeed(w http.ResponseWriter, r *http.Request) {
+	blab := r.FormValue("blab")
+
+	// Check session username
+	sess := session.Instance(r)
+
+	if sess.Values["username"] == nil {
+		log.Println("User is not Logged In - redirecting...")
+		http.Redirect(w, r, "login?target=feed", http.StatusFound)
+		return
+	}
+
+	username := sess.Values["username"].(string)
+
+	log.Println("User is Logged In - continuing... UA=" + r.Header.Get("user-agent") + " U=" + username)
+
+	// Post a blab
+	log.Println("Executing query to post a blab")
+	addBlabSql := "INSERT INTO blabs (blabber, content, timestamp) values (?, ?, datetime('now'));"
+	result, err := sqlite.DB.Exec(addBlabSql, username, blab)
+	if err != nil {
+		errMsg := "Error posting blab:\n" + err.Error()
+		log.Println(errMsg)
+		w.Header().Add("errorMsg", errMsg)
+		ShowFeed(w, r)
+		return
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		errMsg := "Error posting blab:\n" + err.Error()
+		log.Println(errMsg)
+		w.Header().Add("errorMsg", errMsg)
+		ShowFeed(w, r)
+		return
+	}
+	if rows != 1 {
+		errMsg := fmt.Sprintf("Expected to affect 1 row, affected %d.", rows)
+		log.Println(errMsg)
+		w.Header().Add("errorMsg", errMsg)
+		ShowFeed(w, r)
+		return
+	}
+
+	ShowFeed(w, r)
 }
