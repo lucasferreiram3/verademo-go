@@ -99,7 +99,8 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	remember := req.FormValue("remember")
 	target := req.FormValue("target")
 
-	var nextView string
+	nextView := ""
+
 	if target != "" {
 		nextView = target
 	} else {
@@ -184,7 +185,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	}
 
 	log.Println("Redirecting to view: " + nextView)
-	http.Redirect(w, req, "/"+nextView, http.StatusSeeOther)
+	http.Redirect(w, req, nextView, http.StatusSeeOther)
 }
 
 func processLogout(w http.ResponseWriter, r *http.Request) {
