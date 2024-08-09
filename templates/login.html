@@ -61,7 +61,7 @@
 										<td>Username</td>
 										<td>
 											<div class="form-group">
-												<input type="text" class="form-control" name="user" value="{{ .Username }}">
+												<input type="text" class="form-control" name="username" value="">
 											</div>
 											<a href="javascript:hint()">Hint</a>
 										</td>
@@ -110,7 +110,7 @@
 
 		var oReq = new XMLHttpRequest();
 		oReq.addEventListener("load", alerter);
-		oReq.open("GET", "/password-hint?username=" + document.forms[0].user.value);
+		oReq.open("GET", "/password-hint?username=" + document.forms[0].username.value);
 		oReq.send();
 	}
 	</script>
