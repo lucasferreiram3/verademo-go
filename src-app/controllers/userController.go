@@ -36,11 +36,6 @@ type Output struct {
 	Error    string
 }
 
-func getMD5(text string) string {
-	hash := md5.Sum([]byte(text))
-	return hex.EncodeToString(hash[:])
-}
-
 func ShowLogin(w http.ResponseWriter, req *http.Request) {
 	target := req.URL.Query().Get("target")
 	username := req.URL.Query().Get("username")
@@ -112,7 +107,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Constructing SQL Query
-	sqlQuery := fmt.Sprintf("select username, password, password_hint, created_at, last_login, real_name, blab_name from users where username = ", username, getMD5(password))
+	sqlQuery := "SELECT username, password_hint, created_at, last_login, real_name, blab_name FROM users WHERE username = ? AND password = ?"
 
 	result := struct {
 		Username     string
@@ -123,7 +118,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		BlabName     string
 	}{}
 
-	err = sqlite.DB.QueryRow(sqlQuery, username, getMD5(password)).Scan(
+	err = sqlite.DB.QueryRow(sqlQuery, username, GetMD5Hash(password)).Scan(
 		&result.Username,
 		&result.PasswordHint,
 		&result.CreatedAt,
