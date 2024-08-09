@@ -47,11 +47,14 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 
 	var outputs FeedVars
 
-	// Set an error if one was given in response (usually taken from processFeed)
-	resError := w.Header().Get("errorMsg")
-	if resError != "" {
-		outputs.Error = resError
-		w.Header().Del("errorMsg")
+	// Set an error if one was given in response (usually taken from ProcessFeed)
+	resError, err := r.Cookie("errorMsg")
+	if err == nil {
+		outputs.Error = resError.Value
+		http.SetCookie(w, &http.Cookie{
+			Name:   "errorMsg",
+			MaxAge: -1,
+		})
 	}
 
 	// Get blabs from blabbers that are being listened to
@@ -59,7 +62,7 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 	blabsForMe := fmt.Sprintf(sqlBlabsForMe, 10, 0)
 	blabsForMeResults, err := sqlite.DB.Query(blabsForMe, username)
 	if err != nil {
-		errMsg := "Error getting 'Blabs for me':\n" + err.Error()
+		errMsg := "Error getting 'Blabs for me': \n" + err.Error()
 		log.Println(errMsg)
 		outputs.Error = errMsg
 		view.Render(w, "feed.html", outputs)
@@ -77,7 +80,7 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 		var post models.Blab
 
 		if err := blabsForMeResults.Scan(&author.Username, &author.BlabName, &post.Content, &post.PostDate, &post.CommentCount, &post.ID); err != nil {
-			errMsg := "Error reading data from 'Blabs for me' query:\n" + err.Error()
+			errMsg := "Error reading data from 'Blabs for me' query: \n" + err.Error()
 			log.Println(errMsg)
 			outputs.Error = errMsg
 			view.Render(w, "feed.html", outputs)
@@ -98,7 +101,7 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 	log.Println("Executing query to get all of user's Blabs")
 	blabsByMeResults, err := sqlite.DB.Query(sqlBlabsByMe, username)
 	if err != nil {
-		errMsg := "Error getting 'Blabs for me':\n" + err.Error()
+		errMsg := "Error getting 'Blabs for me': \n" + err.Error()
 		log.Println(errMsg)
 		outputs.Error = errMsg
 		view.Render(w, "feed.html", outputs)
@@ -115,7 +118,7 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 		var post models.Blab
 
 		if err := blabsByMeResults.Scan(&post.Content, &post.PostDate, &post.CommentCount, &post.ID); err != nil {
-			errMsg := "Error reading data from 'Blabs by me' query:\n" + err.Error()
+			errMsg := "Error reading data from 'Blabs by me' query: \n" + err.Error()
 			log.Println(errMsg)
 			outputs.Error = errMsg
 			view.Render(w, "feed.html", outputs)
@@ -148,14 +151,14 @@ func MoreFeed(w http.ResponseWriter, r *http.Request) {
 	// Convert GET parameters to integers
 	count, err := strconv.Atoi(countParam)
 	if err != nil {
-		log.Println("Error converting count:" + countParam + " to integer:\n" + err.Error())
+		log.Println("Error converting count:" + countParam + " to integer: \n" + err.Error())
 		http.Redirect(w, r, "feed", http.StatusBadRequest)
 		return
 	}
 
 	len, err := strconv.Atoi(lenParam)
 	if err != nil {
-		log.Println("Error converting len:" + lenParam + " to integer:\n" + err.Error())
+		log.Println("Error converting len:" + lenParam + " to integer: \n" + err.Error())
 		http.Redirect(w, r, "feed", http.StatusBadRequest)
 		return
 	}
@@ -176,7 +179,7 @@ func MoreFeed(w http.ResponseWriter, r *http.Request) {
 	blabsForMe := fmt.Sprintf(sqlBlabsForMe, len, count)
 	results, err := sqlite.DB.Query(blabsForMe, username)
 	if err != nil {
-		errMsg := "Error getting more blabs:\n" + err.Error()
+		errMsg := "Error getting more blabs: \n" + err.Error()
 		log.Println(errMsg)
 		http.Redirect(w, r, "feed", http.StatusBadRequest)
 		return
@@ -193,7 +196,7 @@ func MoreFeed(w http.ResponseWriter, r *http.Request) {
 		var post models.Blab
 
 		if err := results.Scan(&author.Username, &author.BlabName, &post.Content, &post.PostDate, &post.CommentCount, &post.ID); err != nil {
-			errMsg := "Error reading data from 'more feed' query:\n" + err.Error()
+			errMsg := "Error reading data from 'more feed' query: \n" + err.Error()
 			log.Println(errMsg)
 			http.Redirect(w, r, "feed", http.StatusBadRequest)
 			return
@@ -234,29 +237,39 @@ func ProcessFeed(w http.ResponseWriter, r *http.Request) {
 	addBlabSql := "INSERT INTO blabs (blabber, content, timestamp) values (?, ?, datetime('now'));"
 	result, err := sqlite.DB.Exec(addBlabSql, username, blab)
 	if err != nil {
-		errMsg := "Error posting blab:\n" + err.Error()
+		errMsg := "Error posting blab: \n" + err.Error()
 		log.Println(errMsg)
-		w.Header().Add("errorMsg", errMsg)
-		ShowFeed(w, r)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "feed", http.StatusSeeOther)
 		return
 	}
 	rows, err := result.RowsAffected()
 	if err != nil {
-		errMsg := "Error posting blab:\n" + err.Error()
+		errMsg := "Error posting blab: \n" + err.Error()
 		log.Println(errMsg)
-		w.Header().Add("errorMsg", errMsg)
-		ShowFeed(w, r)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "feed", http.StatusSeeOther)
 		return
 	}
 	if rows != 1 {
 		errMsg := fmt.Sprintf("Expected to affect 1 row, affected %d.", rows)
 		log.Println(errMsg)
 		w.Header().Add("errorMsg", errMsg)
-		ShowFeed(w, r)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "feed", http.StatusSeeOther)
 		return
 	}
 
-	ShowFeed(w, r)
+	http.Redirect(w, r, "feed", http.StatusSeeOther)
 }
 
 func ShowBlab(w http.ResponseWriter, r *http.Request) {
@@ -295,13 +308,23 @@ func ShowBlab(w http.ResponseWriter, r *http.Request) {
 
 	var outputs BlabVars
 
+	// Set an error if one was given in response (usually taken from ProcessBlab)
+	resError, err := r.Cookie("errorMsg")
+	if err == nil {
+		outputs.Error = resError.Value
+		http.SetCookie(w, &http.Cookie{
+			Name:   "errorMsg",
+			MaxAge: -1,
+		})
+	}
+
 	// Convert GET parameter to integer
 	blabid, err := strconv.Atoi(blabidParam)
 	if err != nil {
-		errMsg := "Error converting blab ID:" + blabidParam + " to integer:\n" + err.Error()
+		errMsg := "Error converting blab ID " + blabidParam + " to integer. Check the blab ID: \n" + err.Error()
 		log.Println(errMsg)
-		w.Header().Add("errorMsg", errMsg)
-		ShowFeed(w, r)
+		outputs.Error = errMsg
+		view.Render(w, "blab.html", outputs)
 		return
 	}
 
@@ -313,13 +336,13 @@ func ShowBlab(w http.ResponseWriter, r *http.Request) {
 	err = blabDetailsResult.Scan(&outputs.Content, &outputs.BlabName)
 	switch {
 	case err == sql.ErrNoRows:
-		errMsg := "No blab found with ID:" + blabidParam + "\n" + err.Error()
+		errMsg := "No blab found with ID:" + blabidParam + " \n" + err.Error()
 		log.Println(errMsg)
 		outputs.Error = errMsg
 		view.Render(w, "blab.html", outputs)
 		return
 	case err != nil:
-		errMsg := "Error getting blab details:\n" + err.Error()
+		errMsg := "Error getting blab details: \n" + err.Error()
 		log.Println(errMsg)
 		outputs.Error = errMsg
 		view.Render(w, "blab.html", outputs)
@@ -330,7 +353,7 @@ func ShowBlab(w http.ResponseWriter, r *http.Request) {
 	log.Println("Executing query to get all comments for blab")
 	blabCommentsResults, err := sqlite.DB.Query(blabCommentsSql, blabid)
 	if err != nil {
-		errMsg := "Error getting blab comments:\n" + err.Error()
+		errMsg := "Error getting blab comments: \n" + err.Error()
 		log.Println(errMsg)
 		outputs.Error = errMsg
 		view.Render(w, "blab.html", outputs)
@@ -348,7 +371,7 @@ func ShowBlab(w http.ResponseWriter, r *http.Request) {
 		var comment models.Comment
 
 		if err := blabCommentsResults.Scan(&author.Username, &author.BlabName, &comment.Content, &comment.PostDate); err != nil {
-			errMsg := "Error reading data from blab comments:\n" + err.Error()
+			errMsg := "Error reading data from blab comments: \n" + err.Error()
 			log.Println(errMsg)
 			outputs.Error = errMsg
 			view.Render(w, "blab.html", outputs)
@@ -365,4 +388,60 @@ func ShowBlab(w http.ResponseWriter, r *http.Request) {
 	outputs.Comments = comments
 
 	view.Render(w, "blab.html", outputs)
+}
+
+func ProcessBlab(w http.ResponseWriter, r *http.Request) {
+	comment := r.FormValue("comment")
+	blabid := r.FormValue("blabid")
+
+	// Check session username
+	sess := session.Instance(r)
+
+	if sess.Values["username"] == nil {
+		log.Println("User is not Logged In - redirecting...")
+		http.Redirect(w, r, "login?target=feed", http.StatusFound)
+		return
+	}
+
+	username := sess.Values["username"].(string)
+
+	log.Println("User is Logged In - continuing... UA=" + r.Header.Get("user-agent") + " U=" + username)
+
+	// Post a comment
+	log.Println("Executing query to post a comment")
+	addCommentSql := "INSERT INTO comments (blabid, blabber, content, timestamp) values (?, ?, ?, datetime('now'));"
+	result, err := sqlite.DB.Exec(addCommentSql, blabid, username, comment)
+	if err != nil {
+		errMsg := "Error posting comment: \n" + err.Error()
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "/blab?blabid="+blabid, http.StatusSeeOther)
+		return
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		errMsg := "Error posting comment: \n" + err.Error()
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "/blab?blabid="+blabid, http.StatusSeeOther)
+		return
+	}
+	if rows != 1 {
+		errMsg := fmt.Sprintf("Expected to affect 1 row, affected %d.", rows)
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "/blab?blabid="+blabid, http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/blab?blabid="+blabid, http.StatusSeeOther)
 }
