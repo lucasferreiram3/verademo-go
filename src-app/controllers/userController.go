@@ -185,22 +185,19 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 func processLogout(w http.ResponseWriter, r *http.Request) {
 	log.Println("Entering processLogout")
 
-	// Get the session
 	session, _ := store.Get(r, "session-name")
 
-	// Set the username to null (clear it)
 	session.Values["username"] = nil
 
-	// Save the session
 	err := session.Save(r, w)
 	if err != nil {
 		log.Println("Error saving session:", err)
 	}
 
 	// Optionally update response
-	/*if err := updateInResponse(session.Values["username"], w); err != nil {
+	if err := updateInResponse(session.Values["username"], w); err != nil {
 		log.Println("Error updating response:", err)
-	}*/
+	}
 
 	// Redirect to login page
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
