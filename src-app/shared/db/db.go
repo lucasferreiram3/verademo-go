@@ -6,12 +6,12 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var db *sql.DB
+var DB *sql.DB
 
 func InitDB() (*sql.DB, error) {
 	var err error
 
-	db, err = sql.Open("sqlite3", "db.sqlite3")
+	DB, err = sql.Open("sqlite3", "db.sqlite3")
 	if err != nil {
 		return nil, err
 	}
@@ -23,10 +23,10 @@ func InitDB() (*sql.DB, error) {
 						timestamp TEXT
 					);`
 
-	_, err = db.Exec(sqlStatement)
+	_, err = DB.Exec(sqlStatement)
 	if err != nil {
 		return nil, err
 	}
 
-	return db, nil
+	return DB, nil
 }
