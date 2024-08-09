@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"context"
 	"crypto/md5"
 	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"verademo-go/src-app/models"
 	sqlite "verademo-go/src-app/shared/db"
 	session "verademo-go/src-app/shared/session"
 	view "verademo-go/src-app/shared/view"
@@ -35,8 +38,14 @@ type Account struct {
 	Username string
 }
 type Output struct {
-	Username string
-	Error    string
+	Username   string
+	Error      string
+	Hecklers   []models.Blabber
+	Events     []string
+	Image      string // ImageName
+	RealName   string
+	BlabName   string
+	TotpSecret string
 }
 
 func getMD5(text string) string {
@@ -367,11 +376,202 @@ func ProcessRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Println(current_session.Values["username"].(string))
 
-	view.Render(w, "feed.html", output)
-	return
+	//view.Render(w, "feed.html", output)
+	http.Redirect(w, r, "login?username="+username, http.StatusSeeOther)
+}
+
+func ShowProfile(w http.ResponseWriter, r *http.Request) {
+	// let type = req.query.type : Implement GET request reading
+	output := Output{}
+	log.Println("Entering ShowProfile")
+	current_session := session.Instance(r)
+	username := current_session.Values["username"].(string)
+
+	// TODO: Fix page redirect without session
+	// Currently an old session is getting picked up that should not be.
+	fmt.Println(username)
+	if username == "" {
+		log.Println("User is not Logged In - redirecting...")
+		http.Redirect(w, r, "login?target=profile", http.StatusSeeOther)
+		return
+	}
+
+	sqlMyHecklers := "SELECT users.username, users.blab_name, users.created_at FROM users LEFT JOIN listeners ON users.username = listeners.listener WHERE listeners.blabber=? AND listeners.status='Active';"
+	log.Println(sqlMyHecklers)
+	hecklers := []models.Blabber{}
+	rows, err := sqlite.DB.Query(sqlMyHecklers, username)
+	if err != nil {
+		log.Println(err)
+		view.Render(w, "profile.html", output)
+		return
+	}
+
+	//Scans all results from query into the hecklers array
+	for rows.Next() {
+		i := models.Blabber{}
+		err = rows.Scan(&i.Username, &i.BlabName, &i.CreatedDate)
+		if err != nil {
+			log.Println("Error scanning sql data response")
+			view.Render(w, "profile.html", output)
+			return
+		}
+		hecklers = append(hecklers, i)
+
+	}
+	events := []string{}
+	sqlMyEvents := "select event from users_history where blabber=\"" + username + "\" ORDER BY eventid DESC; "
+	log.Println(sqlMyEvents)
+	rows, err = sqlite.DB.Query(sqlMyEvents)
+	if err != nil {
+		log.Println("Couldn't retreive event history")
+		view.Render(w, "profile.html", output)
+		return
+	}
+
+	for rows.Next() {
+		var i string
+		err = rows.Scan(&i)
+		if err != nil {
+			log.Println("Error scanning sql data response")
+			view.Render(w, "profile.html", output)
+			return
+		}
+		events = append(events, i)
+
+	}
+
+	sqlQuery := "SELECT username, real_name, blab_name, totp_secret FROM users WHERE username = '" + username + "'"
+	log.Println(sqlQuery)
+
+	row := sqlite.DB.QueryRow(sqlQuery)
+
+	if err = row.Scan(&output.Username, &output.RealName, &output.BlabName, &output.TotpSecret); err == sql.ErrNoRows {
+		output.Error = "Access Denied: no user data found"
+		view.Render(w, "login.html", output)
+		return
+
+	}
+	output.Events = events
+	output.Hecklers = hecklers
+	view.Render(w, "profile.html", output)
+
+}
+
+type JSONResponse struct {
+	Message string
+}
+
+func ProcessProfile(w http.ResponseWriter, r *http.Request) {
+	log.Println("Entering ProcessProfile")
+
+	realName := r.FormValue("realName")
+	blabName := r.FormValue("blabName")
+	username := r.FormValue("username")
+	//TODO: Check for supplied file
+
+	current_session := session.Instance(r)
+	sessionUsername := current_session.Values["username"].(string)
+	if sessionUsername == "" {
+		log.Println("User is not logged in - redirecting...")
+		http.Redirect(w, r, "login?target=profile", http.StatusSeeOther)
+		return
+	}
+	frame := JSONResponse{}
+	//TODO: Print out user agent
+	// log.Println("User is logged in - continuing... UA=" + )
+	log.Println("user logged in")
+	oldUsername := sessionUsername
+	log.Println("Executing the update prepared statement")
+	result, err := sqlite.DB.Exec("UPDATE users SET real_name=?, blab_name=? WHERE username=?;", realName, blabName, sessionUsername)
+	// Nested statements for error handling
+	if err != nil {
+		log.Println("Error updating user")
+	} else {
+		RowsAffected, err := result.RowsAffected()
+		if err != nil {
+			log.Println(err)
+		} else if RowsAffected != 1 {
+			frame.Message = "<script>alert('An error occurred, please try again.');</script>"
+			response, err := json.Marshal(frame)
+			if err != nil {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+			w.Header().Set("Content-type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(response)
+			return
+		}
+	}
+
+	//Rename profijle image if username changes
+	if !(username == oldUsername) {
+		exists := false
+		newUsername := strings.ToLower(username)
+
+		log.Println("Preparing the duplicate username check Prepared Statement")
+		row := sqlite.DB.QueryRow("SELECT username FROM users WHERE username=?", newUsername)
+		var err error
+		if err = row.Scan(); err != sql.ErrNoRows {
+			log.Println("Username: " + username + " already exists. Try again")
+			exists = true
+
+		}
+		if exists {
+			frame.Message = "<script>alert('That username already exists. Please try another.');</script>"
+			response, err := json.Marshal(frame)
+			if err != nil {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+			w.Header().Set("Content-type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			os.Stdout.Write(response)
+			w.Write(response)
+			return
+		}
+
+		//attempt to update username
+		oldUsername = strings.ToLower(oldUsername)
+		log.Println("Creating Transaction")
+		tx, err := sqlite.DB.BeginTx(context.Background(), nil)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		//Call rollback when function is returned. If function returns early, transaction rolls back before being committed.
+		defer tx.Rollback()
+
+		sqlStrQueries := []string{
+			"UPDATE users SET username='?' WHERE username='?'",
+			"UPDATE blabs SET blabber='?' WHERE blabber='?'",
+			"UPDATE comments SET blabber='?' WHERE blabber='?'",
+			"UPDATE listeners SET blabber='?' WHERE blabber='?'",
+			"UPDATE listeners SET listener='?' WHERE listener='?'",
+			"UPDATE users_history SET blabber='?' WHERE blabber='?'"}
+
+		log.Println("Executing Transactions")
+		for i := 0; i < len(sqlStrQueries); i++ {
+			_, err := tx.Exec(sqlStrQueries[i], newUsername, oldUsername)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+		}
+		//Commit Transactions
+		if err = tx.Commit(); err != nil {
+			log.Println(err)
+			return
+		}
+		//oldImage := GetProfileImageFromUsername(oldUsername)
+
+	}
+
 }
 
 func GetMD5Hash(text string) string {
 	hash := md5.Sum([]byte(text))
 	return hex.EncodeToString(hash[:])
 }
+
+// func GetProfileImageFromUsername(username){
+// 	files :=
+// }
