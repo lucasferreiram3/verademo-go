@@ -28,6 +28,12 @@ func feedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func moreFeedHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		controllers.MoreFeed(w, r)
+	}
+}
+
 func toolsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		controllers.ShowTools(w, r)
@@ -75,6 +81,7 @@ Creates a session store
 func Routes() *mux.Router {
 	router := mux.NewRouter()
 	router.HandleFunc("/feed", feedHandler)
+	router.HandleFunc("/morefeed", moreFeedHandler)
 	router.HandleFunc("/login", loginHandler)
 	router.HandleFunc("/tools", toolsHandler)
 	router.HandleFunc("/register", registerHandler)
