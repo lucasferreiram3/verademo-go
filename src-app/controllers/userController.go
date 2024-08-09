@@ -46,7 +46,7 @@ func ShowLogin(w http.ResponseWriter, req *http.Request) {
 		if target != "" {
 			http.Redirect(w, req, target, http.StatusFound)
 		} else {
-			http.Redirect(w, req, "feed.html", http.StatusFound)
+			http.Redirect(w, req, "/feed", http.StatusFound)
 		}
 		return
 	}
@@ -65,7 +65,7 @@ func ShowLogin(w http.ResponseWriter, req *http.Request) {
 		if target != "" {
 			http.Redirect(w, req, target, http.StatusFound)
 		} else {
-			http.Redirect(w, req, "feed.html", http.StatusFound)
+			http.Redirect(w, req, "/feed", http.StatusFound)
 		}
 		return
 	} else {
@@ -103,9 +103,9 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	if target != "" {
 		nextView = target
 	} else {
-		nextView = "feed.html"
+		nextView = "/feed"
 	}
-
+	log.Println("Username: " + username + " Password: " + password)
 	// Constructing SQL Query
 	sqlQuery := "SELECT username, password_hint, created_at, last_login, real_name, blab_name FROM users WHERE username = ? AND password = ?"
 
@@ -126,6 +126,8 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		&result.RealName,
 		&result.BlabName,
 	)
+	log.Println("After Query: " + result.Username)
+	// In case user does not exist
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Println("User not found")
@@ -150,6 +152,13 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		current_session.Values["real_name"] = result.RealName
 		current_session.Values["blab_name"] = result.BlabName
 		current_session.Save(req, w)
+
+		if err := current_session.Save(req, w); err != nil {
+			log.Println("Error saving session:", err)
+			http.Error(w, "An error occurred", http.StatusInternalServerError)
+			return
+		}
+
 	}
 	// Updating last login time
 	_, err = sqlite.DB.Exec("UPDATE users SET last_login=datetime('now') WHERE username='" + result.Username + "';")
@@ -165,17 +174,17 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		current_session, _ := session.Store.Get(req, "session-name")
 		current_session.Values["totp_username"] = result.Username
 		current_session.Save(req, w)
-		nextView = "totp.html"
+		nextView = "/totp"
 	} else {
 		log.Println("Setting session username to: " + username)
 		current_session, _ := session.Store.Get(req, "session-name")
 		current_session.Values["username"] = result.Username
 		current_session.Save(req, w)
-		nextView = "feed.html"
+		nextView = "/feed"
 	}
 
 	log.Println("Redirecting to view: " + nextView)
-	http.Redirect(w, req, nextView, http.StatusSeeOther)
+	http.Redirect(w, req, "/"+nextView, http.StatusSeeOther)
 }
 
 func processLogout(w http.ResponseWriter, r *http.Request) {
@@ -196,7 +205,7 @@ func processLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Redirect to login page
-	http.Redirect(w, r, "login.html", http.StatusSeeOther)
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 func ShowPasswordHint(w http.ResponseWriter, req *http.Request) {
