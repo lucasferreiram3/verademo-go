@@ -8,7 +8,7 @@ import (
 	session "verademo-go/src-app/shared/session"
 	"verademo-go/src-app/shared/view"
 
-	"github.com/ian-kent/go-log/log"
+	"log"
 )
 
 var sqlBlabsByMe = `SELECT blabs.content, blabs.timestamp, COUNT(comments.blabber), blabs.blabid ` +
