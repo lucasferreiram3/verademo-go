@@ -195,9 +195,9 @@ func processLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Optionally update response
-	if err := updateInResponse(session.Values["username"], w); err != nil {
+	/*if err := updateInResponse(session.Values["username"], w); err != nil {
 		log.Println("Error updating response:", err)
-	}
+	}*/
 
 	// Redirect to login page
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
