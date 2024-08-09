@@ -24,13 +24,21 @@ func feedHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		controllers.ShowFeed(w, r)
 	} else if r.Method == "POST" {
-		return
+		controllers.ProcessFeed(w, r)
 	}
 }
 
 func moreFeedHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		controllers.MoreFeed(w, r)
+	}
+}
+
+func blabHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		controllers.ShowBlab(w, r)
+	} else if r.Method == "POST" {
+		controllers.ProcessBlab(w, r)
 	}
 }
 
@@ -96,8 +104,10 @@ Creates a session store
 */
 func Routes() *mux.Router {
 	router := mux.NewRouter()
+	router.StrictSlash(true)
 	router.HandleFunc("/feed", feedHandler)
 	router.HandleFunc("/morefeed", moreFeedHandler)
+	router.HandleFunc("/blab", blabHandler)
 	router.HandleFunc("/login", loginHandler)
 	router.HandleFunc("/tools", toolsHandler)
 	router.HandleFunc("/register", registerHandler)
@@ -106,6 +116,7 @@ func Routes() *mux.Router {
 	router.HandleFunc("/password-hint", passwordHintHandler)
 	router.HandleFunc("/profile", profileHandler)
 	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
+	http.Handle("/", router)
 
 	return router
 }

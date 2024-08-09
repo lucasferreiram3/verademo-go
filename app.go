@@ -13,7 +13,8 @@ func main() {
 	session.Configure(session.Session{Name: "verademo", SecretKey: "key"})
 	var database *sql.DB
 	database, _ = db.InitDB()
-	log.Print("test")
+	log.Print("\nStarting VerademoGO....")
+	log.Print("\nVerademoGO is running.")
 
 	log.Fatal(http.ListenAndServe(":8080", router.Routes()))
 	database.Close()
