@@ -16,11 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/sessions"
 	"github.com/pquerna/otp/totp"
 )
-
-var store = sessions.NewCookieStore([]byte("secret-key"))
 
 type User struct {
 	Username     string
@@ -48,8 +45,8 @@ func ShowLogin(w http.ResponseWriter, req *http.Request) {
 	target := req.URL.Query().Get("target")
 	username := req.URL.Query().Get("username")
 
-	session, err := req.Cookie("session_username")
-	if err == nil && session.Value != "" {
+	current_session, err := req.Cookie("session_username")
+	if err == nil && current_session.Value != "" {
 		log.Println("User is already logged in - redirecting...")
 		if target != "" {
 			http.Redirect(w, req, target, http.StatusFound)
@@ -111,11 +108,12 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	if target != "" {
 		nextView = target
 	} else {
-		nextView = "/feed"
+		nextView = "feed.html"
 	}
 
-	// Constructing SQL Query, have to figure out hashing
-	sqlQuery := fmt.Sprintf("select username, password, password_hint, created_at, last_login, real_name, blab_name from users where username='", username, getMD5(password))
+	// Constructing SQL Query
+	sqlQuery := fmt.Sprintf("select username, password, password_hint, created_at, last_login, real_name, blab_name from users where username = ", username, getMD5(password))
+
 	result := struct {
 		Username     string
 		PasswordHint string
@@ -149,19 +147,19 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	// Handling the "remember me"
 	if remember == "" {
 		// Store details in session
-		session, _ := store.Get(req, "session-name")
-		session.Values["username"] = result.Username
-		session.Values["password_hint"] = result.PasswordHint
-		session.Values["created_at"] = result.CreatedAt
-		session.Values["last_login"] = result.LastLogin
-		session.Values["real_name"] = result.RealName
-		session.Values["blab_name"] = result.BlabName
-		session.Save(req, w)
+		current_session, _ := session.Store.Get(req, "session-name")
+		current_session.Values["username"] = result.Username
+		current_session.Values["password_hint"] = result.PasswordHint
+		current_session.Values["created_at"] = result.CreatedAt
+		current_session.Values["last_login"] = result.LastLogin
+		current_session.Values["real_name"] = result.RealName
+		current_session.Values["blab_name"] = result.BlabName
+		current_session.Save(req, w)
 	}
 	// Updating last login time
-	_, err = sqlite.DB.Exec("UPDATE users SET last_login = NOW() WHERE username = ?", result.Username)
+	_, err = sqlite.DB.Exec("UPDATE users SET last_login=datetime('now') WHERE username='" + result.Username + "';")
 	if err != nil {
-		log.Println()
+		log.Println("Error updating last login for user: ", err)
 		http.Error(w, "An error occurred", http.StatusInternalServerError)
 		return
 	}
@@ -169,15 +167,16 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	// TOTP Handling
 	if len(username) >= 4 && username[len(username)-4:] == "totp" {
 		log.Println("User " + username + " Has TOTP Enabled!")
-		session, _ := store.Get(req, "session-name")
-		session.Values["totp_username"] = result.Username
-		session.Save(req, w)
-		nextView = "/totp"
+		current_session, _ := session.Store.Get(req, "session-name")
+		current_session.Values["totp_username"] = result.Username
+		current_session.Save(req, w)
+		nextView = "totp.html"
 	} else {
 		log.Println("Setting session username to: " + username)
-		session, _ := store.Get(req, "session-name")
-		session.Values["username"] = result.Username
-		session.Save(req, w)
+		current_session, _ := session.Store.Get(req, "session-name")
+		current_session.Values["username"] = result.Username
+		current_session.Save(req, w)
+		nextView = "feed.html"
 	}
 
 	log.Println("Redirecting to view: " + nextView)
@@ -187,9 +186,9 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 func processLogout(w http.ResponseWriter, r *http.Request) {
 	log.Println("Entering processLogout")
 
-	current_session, _ := store.Get(r, "session-name")
+	current_session, _ := session.Store.Get(r, "session-name")
 
-	current_session.Values["username"] = nil
+	current_session.Values["username"] = ""
 
 	err := current_session.Save(r, w)
 	if err != nil {
@@ -197,13 +196,12 @@ func processLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Optionally update response
-	// TODO: session.Values["username"] is not a User*
-	// if err := updateInResponse(current_session.Values["username"], w); err != nil {
-	// 	log.Println("Error updating response:", err)
-	// }
+	if err := updateInResponse(current_session.Values["username"], w); err != nil {
+		log.Println("Error updating response:", err)
+	}
 
 	// Redirect to login page
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	http.Redirect(w, r, "login.html", http.StatusSeeOther)
 }
 
 func ShowPasswordHint(w http.ResponseWriter, req *http.Request) {
@@ -265,7 +263,7 @@ func createFromRequest(req *http.Request) (*User, error) {
 	return &user, nil
 }
 
-func updateInResponse(currentUser *User, w http.ResponseWriter) error {
+func updateInResponse(currentUser interface{}, w http.ResponseWriter) error {
 	userJSON, err := json.Marshal(currentUser)
 	if err != nil {
 		return err
