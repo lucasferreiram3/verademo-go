@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"verademo-go/src-app/models"
 	sqlite "verademo-go/src-app/shared/db"
 	session "verademo-go/src-app/shared/session"
@@ -22,6 +23,7 @@ var sqlBlabsForMe = `SELECT users.username, users.blab_name, blabs.content, blab
 
 func ShowFeed(w http.ResponseWriter, r *http.Request) {
 
+	// Struct for variables to pass to the feed template
 	type Outputs struct {
 		BlabsByOthers []models.Blab
 		BlabsByMe     []models.Blab
@@ -29,6 +31,7 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 		Error         string
 	}
 
+	// Check session username
 	sess := session.Instance(r)
 
 	if sess.Values["username"] == nil {
@@ -43,6 +46,7 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 
 	var outputs Outputs
 
+	// Get blabs from blabbers that are being listened to
 	log.Println("Executing query to get all 'Blabs for me'")
 	blabsForMe := fmt.Sprintf(sqlBlabsForMe, 10, 0)
 	blabsForMeResults, err := sqlite.DB.Query(blabsForMe, username)
@@ -54,8 +58,10 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Close the results object when they have been used up
 	defer blabsForMeResults.Close()
 
+	// Add each blab found to a variable to be passed to the template
 	var feedBlabs []models.Blab
 
 	for blabsForMeResults.Next() {
@@ -80,6 +86,7 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 	outputs.BlabsByOthers = feedBlabs
 	outputs.CurrentUser = username
 
+	// Get blabs from the current user
 	log.Println("Executing query to get all of user's Blabs")
 	blabsByMeResults, err := sqlite.DB.Query(sqlBlabsByMe, username)
 	if err != nil {
@@ -90,8 +97,10 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Close the results object when they have been used up
 	defer blabsByMeResults.Close()
 
+	// Add each blab found to a variable to be passed to the template
 	var myBlabs []models.Blab
 
 	for blabsByMeResults.Next() {
@@ -118,5 +127,80 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 }
 
 func MoreFeed(w http.ResponseWriter, r *http.Request) {
+	countParam := r.URL.Query().Get("count")
+	lenParam := r.URL.Query().Get("len")
+
+	// Template for response
+	template := "<li><div>" + "\t<div class=\"commenterImage\">" + "\t\t<img src=\"/static/images/%s.png\">" +
+		"\t</div>" + "\t<div class=\"commentText\">" + "\t\t<p>%s</p>" +
+		"\t\t<span class=\"date sub-text\">by %s on %s</span><br>" +
+		"\t\t<span class=\"date sub-text\"><a href=\"blab?blabid=%d\">%d Comments</a></span>" + "\t</div>" +
+		"</div></li>"
+
+	// Convert GET parameters to integers
+	count, err := strconv.Atoi(countParam)
+	if err != nil {
+		log.Println("Error converting count:" + countParam + " to integer:\n" + err.Error())
+		http.Redirect(w, r, "feed", http.StatusBadRequest)
+		return
+	}
+
+	len, err := strconv.Atoi(lenParam)
+	if err != nil {
+		log.Println("Error converting len:" + lenParam + " to integer:\n" + err.Error())
+		http.Redirect(w, r, "feed", http.StatusBadRequest)
+		return
+	}
+
+	// Check session username
+	sess := session.Instance(r)
+
+	if sess.Values["username"] == nil {
+		log.Println("User is not Logged In - redirecting...")
+		http.Redirect(w, r, "login?target=feed", http.StatusFound)
+		return
+	}
+
+	username := sess.Values["username"].(string)
+
+	// Run SQL query
+	log.Println("Executing query to get more blabs")
+	blabsForMe := fmt.Sprintf(sqlBlabsForMe, len, count)
+	results, err := sqlite.DB.Query(blabsForMe, username)
+	if err != nil {
+		errMsg := "Error getting more blabs:\n" + err.Error()
+		log.Println(errMsg)
+		http.Redirect(w, r, "feed", http.StatusBadRequest)
+		return
+	}
+
+	// Close the results object when they have been used up
+	defer results.Close()
+
+	// Add each blab found to the response using the template
+	var ret string
+
+	for results.Next() {
+		var author models.Blabber
+		var post models.Blab
+
+		if err := results.Scan(&author.Username, &author.BlabName, &post.Content, &post.PostDate, &post.CommentCount, &post.Id); err != nil {
+			errMsg := "Error reading data from 'more feed' query:\n" + err.Error()
+			log.Println(errMsg)
+			http.Redirect(w, r, "feed", http.StatusBadRequest)
+			return
+		}
+
+		ret += fmt.Sprintf(template, author.Username, post.Content, author.BlabName, models.Timestamp(post.PostDate), post.Id, post.CommentCount)
+
+	}
+
+	// Write the response
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "text/plain")
+	_, err = w.Write([]byte(ret))
+	if err != nil {
+		http.Error(w, "Failed to write response", http.StatusInternalServerError)
+	}
 
 }

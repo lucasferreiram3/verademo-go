@@ -93,95 +93,104 @@ func ShowLogin(w http.ResponseWriter, req *http.Request) {
 }
 
 func ProcessLogin(w http.ResponseWriter, req *http.Request) {
-	log.Println("Entering processLogin")
-
-	// Form data check
-	err := req.ParseForm()
+	current_session := session.Instance(req)
+	current_session.Values["username"] = "kevin"
+	err := current_session.Save(req, w)
 	if err != nil {
-		http.Error(w, "Invalid form data", http.StatusBadRequest)
-		return
+		log.Println("Couldn't set session value")
 	}
+	fmt.Println(current_session.Values["username"].(string))
 
-	username := req.FormValue("username")
-	password := req.FormValue("password")
-	remember := req.FormValue("remember")
-	target := req.FormValue("target")
+	view.Render(w, "feed.html", nil)
+	// log.Println("Entering processLogin")
 
-	var nextView string
-	if target != "" {
-		nextView = target
-	} else {
-		nextView = "/feed"
-	}
+	// // Form data check
+	// err := req.ParseForm()
+	// if err != nil {
+	// 	http.Error(w, "Invalid form data", http.StatusBadRequest)
+	// 	return
+	// }
 
-	// Constructing SQL Query, have to figure out hashing
-	sqlQuery := fmt.Sprintf("select username, password, password_hint, created_at, last_login, real_name, blab_name from users where username='", username, getMD5(password))
-	result := struct {
-		Username     string
-		PasswordHint string
-		CreatedAt    string
-		LastLogin    string
-		RealName     string
-		BlabName     string
-	}{}
+	// username := req.FormValue("username")
+	// password := req.FormValue("password")
+	// remember := req.FormValue("remember")
+	// target := req.FormValue("target")
 
-	err = sqlite.DB.QueryRow(sqlQuery, username, getMD5(password)).Scan(
-		&result.Username,
-		&result.PasswordHint,
-		&result.CreatedAt,
-		&result.LastLogin,
-		&result.RealName,
-		&result.BlabName,
-	)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			log.Println("User not found")
-			http.Error(w, "Login failed. Please try again.", http.StatusUnauthorized)
-			return
-		}
-		log.Println(err)
-		http.Error(w, "An error has occured", http.StatusInternalServerError)
-	}
-	log.Println("User found. Redirecting...")
+	// var nextView string
+	// if target != "" {
+	// 	nextView = target
+	// } else {
+	// 	nextView = "/feed"
+	// }
 
-	http.SetCookie(w, &http.Cookie{Name: "username", Value: result.Username})
+	// // Constructing SQL Query, have to figure out hashing
+	// sqlQuery := fmt.Sprintf("select username, password, password_hint, created_at, last_login, real_name, blab_name from users where username='", username, getMD5(password))
+	// result := struct {
+	// 	Username     string
+	// 	PasswordHint string
+	// 	CreatedAt    string
+	// 	LastLogin    string
+	// 	RealName     string
+	// 	BlabName     string
+	// }{}
 
-	// Handling the "remember me"
-	if remember == "" {
-		// Store details in session
-		session, _ := store.Get(req, "session-name")
-		session.Values["username"] = result.Username
-		session.Values["password_hint"] = result.PasswordHint
-		session.Values["created_at"] = result.CreatedAt
-		session.Values["last_login"] = result.LastLogin
-		session.Values["real_name"] = result.RealName
-		session.Values["blab_name"] = result.BlabName
-		session.Save(req, w)
-	}
-	// Updating last login time
-	_, err = sqlite.DB.Exec("UPDATE users SET last_login = NOW() WHERE username = ?", result.Username)
-	if err != nil {
-		log.Println()
-		http.Error(w, "An error occurred", http.StatusInternalServerError)
-		return
-	}
+	// err = sqlite.DB.QueryRow(sqlQuery, username, getMD5(password)).Scan(
+	// 	&result.Username,
+	// 	&result.PasswordHint,
+	// 	&result.CreatedAt,
+	// 	&result.LastLogin,
+	// 	&result.RealName,
+	// 	&result.BlabName,
+	// )
+	// if err != nil {
+	// 	if err == sql.ErrNoRows {
+	// 		log.Println("User not found")
+	// 		http.Error(w, "Login failed. Please try again.", http.StatusUnauthorized)
+	// 		return
+	// 	}
+	// 	log.Println(err)
+	// 	http.Error(w, "An error has occured", http.StatusInternalServerError)
+	// }
+	// log.Println("User found. Redirecting...")
 
-	// TOTP Handling
-	if len(username) >= 4 && username[len(username)-4:] == "totp" {
-		log.Println("User " + username + " Has TOTP Enabled!")
-		session, _ := store.Get(req, "session-name")
-		session.Values["totp_username"] = result.Username
-		session.Save(req, w)
-		nextView = "/totp"
-	} else {
-		log.Println("Setting session username to: " + username)
-		session, _ := store.Get(req, "session-name")
-		session.Values["username"] = result.Username
-		session.Save(req, w)
-	}
+	// http.SetCookie(w, &http.Cookie{Name: "username", Value: result.Username})
 
-	log.Println("Redirecting to view: " + nextView)
-	http.Redirect(w, req, nextView, http.StatusSeeOther)
+	// // Handling the "remember me"
+	// if remember == "" {
+	// 	// Store details in session
+	// 	session, _ := store.Get(req, "session-name")
+	// 	session.Values["username"] = result.Username
+	// 	session.Values["password_hint"] = result.PasswordHint
+	// 	session.Values["created_at"] = result.CreatedAt
+	// 	session.Values["last_login"] = result.LastLogin
+	// 	session.Values["real_name"] = result.RealName
+	// 	session.Values["blab_name"] = result.BlabName
+	// 	session.Save(req, w)
+	// }
+	// // Updating last login time
+	// _, err = sqlite.DB.Exec("UPDATE users SET last_login = NOW() WHERE username = ?", result.Username)
+	// if err != nil {
+	// 	log.Println()
+	// 	http.Error(w, "An error occurred", http.StatusInternalServerError)
+	// 	return
+	// }
+
+	// // TOTP Handling
+	// if len(username) >= 4 && username[len(username)-4:] == "totp" {
+	// 	log.Println("User " + username + " Has TOTP Enabled!")
+	// 	session, _ := store.Get(req, "session-name")
+	// 	session.Values["totp_username"] = result.Username
+	// 	session.Save(req, w)
+	// 	nextView = "/totp"
+	// } else {
+	// 	log.Println("Setting session username to: " + username)
+	// 	session, _ := store.Get(req, "session-name")
+	// 	session.Values["username"] = result.Username
+	// 	session.Save(req, w)
+	// }
+
+	// log.Println("Redirecting to view: " + nextView)
+	// http.Redirect(w, req, nextView, http.StatusSeeOther)
 }
 
 func processLogout(w http.ResponseWriter, r *http.Request) {
