@@ -7,7 +7,7 @@
 <meta name="description" content="">
 <meta name="author" content="">
 
-<title>Blab Feed</title>
+<title>Blab</title>
 
 <!-- Bootstrap core CSS -->
 <link href="resources/css/bootstrap.min.css" rel="stylesheet">
@@ -31,7 +31,7 @@
 		<div class="header clearfix">
 			<nav>
 				<ul class="nav nav-pills pull-right">
-					<li role="presentation" class="active"><a href="feed">Feed</a></li>
+					<li role="presentation"><a href="feed">Feed</a></li>
 					<li role="presentation"><a href="blabbers">Blabbers</a></li>
 					<li role="presentation"><a href="profile">Profile</a></li>
 					<li role="presentation"><a href="tools">Tools</a></li>
@@ -48,12 +48,13 @@
 	<div class="container theme-showcase" role="main">
 
 		<div class="page-header">
-			<h3>
-				Hi {{.CurrentUser}}, welcome to Blab-a-Gag
-			</h3>
-			<h4>The home of of witty one-liners</h4>
+			<h4>{{ .BlabName }} says...</h4>
 		</div>
-
+		<div>
+			<blockquote>
+				<h3>{{ .Content }}</h3>
+			</blockquote>
+		</div>
 		{{if .Error}}
 		<div class="alert alert-danger" role="alert">
 			{{.Error}}
@@ -64,62 +65,36 @@
 			<div class="col-md-6">
 				<div class="detailBox">
 					<div class="titleBox">
-						<label>Blabs for You</label>
-					</div>
-					<div id="feed" class="actionBox">
-						<ul class="commentList">
-							{{range .BlabsByOthers}}
-								
-							<li>
-								<div>
-									<div class="commenterImage">
-										<img src="resources/images/{{.Author.Username}}.png" />
-									</div>
-									<div class="commentText">
-										<p class="">{{.Content}}</p>
-										<span class="date sub-text">
-											by {{ .Author.BlabName }} on {{.PostDate}}
-										</span>
-										<br/>
-										<span class="date sub-text">
-											<a href="blab?blabid={{.ID}}">{{.CommentCount}} Comments</a>
-										</span>
-									</div>
-								</div>
-							</li>
-							{{end}}
-							
-						</ul>
-						<a href="#" onclick="getmore(this); return false;">Fetch more...</a>
-					</div>
-				</div>
-			</div>
-			<div class="col-md-6">
-				<div class="detailBox">
-					<div class="titleBox">
-						<label>Your Blabs</label>
+						<label>Comments</label>
 					</div>
 					<div class="actionBox">
 						<div class="blabber">
-							<form class="form-inline" role="form" method="POST" action="feed">
+							<form class="form-inline" role="form" method="POST" action="blab">
 								<div class="form-group">
 									<input class="form-control" type="text"
-										placeholder="Blab something now..." name="blab" />
+										placeholder="Add a comment now..." name="comment" />
 								</div>
 								<div class="form-group">
 									<button class="btn btn-default">Add</button>
 								</div>
+								<input type="hidden" name="blabid"
+									value="{{ .BlabID }}">
 							</form>
 						</div>
 						<ul class="commentList">
-							{{range .BlabsByMe}}
+							{{range .Comments}}
 							<li>
-								<div class="commentText">
-									<p class="">{{.Content}}</p>
-									<span class="date sub-text">by you on {{.PostDate}}</span><br/>
-									<span class="date sub-text">
-										<a href="blab?blabid={{.ID}}">{{.CommentCount}} Comments</a> <!-- commentCount currently returns null-->
-									</span>
+								<div>
+									<div class="commenterImage">
+										<img src="resources/images/{{ .Author.Username }}.png" />
+									</div>
+									<div class="blockquote">
+										<p class="">
+											"{{ .Content }}"
+										</p>
+										<span class="date sub-text">by {{ .Author.BlabName }}
+											on {{ .PostDate }}</span><br>
+									</div>
 								</div>
 							</li>
 							{{end}}
@@ -127,6 +102,9 @@
 					</div>
 				</div>
 			</div>
+			<div class="col-md-3"></div>
+			<div class="col-md-3"></div>
+
 		</div>
 	</div>
 	<!-- /container -->
@@ -136,22 +114,5 @@
 	<!-- Placed at the end of the document so the pages load faster -->
 	<script src="resources/js/jquery-1.11.2.min.js"></script>
 	<script src="resources/js/bootstrap.min.js"></script>
-
-	<!-- Fetch additional feed items -->
-	<script type="text/javascript">
-		function getmore(obj) {
-			var count = $("#feed li").length;
-			$.get("morefeed", {
-				count : count,
-				len : 10
-			}, function(data) {
-				if (data) {
-					$("#feed ul").append(data);
-				} else {
-					$(obj).remove();
-				}
-			});
-		}
-	</script>
 </body>
 </html>
