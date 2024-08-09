@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
@@ -20,6 +21,7 @@ require (
 
 require (
 	github.com/gorilla/sessions v1.3.0
+	github.com/pquerna/otp v1.4.0
 	github.com/ian-kent/go-log v0.0.0-20160113211217-5731446c36ab
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 )

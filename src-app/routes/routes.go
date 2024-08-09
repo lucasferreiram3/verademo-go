@@ -60,6 +60,14 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		controllers.ShowRegisterFinish(w, r)
+	} else if r.Method == "POST" {
+		controllers.ProcessRegisterFinish(w, r)
+	}
+}
+
 /*
 Creates a router to listen for requests
 Creates a session store
@@ -70,6 +78,7 @@ func Routes() *mux.Router {
 	router.HandleFunc("/login", loginHandler)
 	router.HandleFunc("/tools", toolsHandler)
 	router.HandleFunc("/register", registerHandler)
+	router.HandleFunc("/register-finish", registerFinishHandler)
 	router.HandleFunc("/password-hint", passwordHintHandler)
 	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 

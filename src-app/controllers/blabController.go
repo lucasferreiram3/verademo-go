@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"verademo-go/src-app/models"
-	"verademo-go/src-app/shared/db"
+	sqlite "verademo-go/src-app/shared/db"
 	session "verademo-go/src-app/shared/session"
 	"verademo-go/src-app/shared/view"
 
@@ -43,7 +43,7 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Executing query to get all 'Blabs for me'")
 	blabsForMe := fmt.Sprintf(sqlBlabsForMe, 10, 0)
-	blabsForMeResults, err := db.Db.Query(blabsForMe, username)
+	blabsForMeResults, err := sqlite.DB.Query(blabsForMe, username)
 	if err != nil {
 		log.Println("Error getting 'Blabs for me':\n" + err.Error())
 	}
