@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"verademo-go/src-app/shared/db"
 	session "verademo-go/src-app/shared/session"
 	"verademo-go/src-app/shared/view"
 
@@ -36,7 +37,7 @@ type Output struct {
 	Error    string
 }
 
-var db *sql.DB
+// var db *sql.DB
 
 func getMD5(text string) string {
 	hash := md5.Sum([]byte(text))
@@ -124,7 +125,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		BlabName     string
 	}{}
 
-	err = db.QueryRow(sqlQuery, username, getMD5(password)).Scan(
+	err = db.Db.QueryRow(sqlQuery, username, getMD5(password)).Scan(
 		&result.Username,
 		&result.PasswordHint,
 		&result.CreatedAt,
@@ -158,7 +159,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		session.Save(req, w)
 	}
 	// Updating last login time
-	_, err = db.Exec("UPDATE users SET last_login = NOW() WHERE username = ?", result.Username)
+	_, err = db.Db.Exec("UPDATE users SET last_login = NOW() WHERE username = ?", result.Username)
 	if err != nil {
 		log.Println()
 		http.Error(w, "An error occurred", http.StatusInternalServerError)
@@ -221,7 +222,7 @@ func ShowPasswordHint(w http.ResponseWriter, req *http.Request) {
 	log.Println(sqlQuery)
 
 	var passwordHint string
-	err := db.QueryRow(sqlQuery, username).Scan(&passwordHint)
+	err := db.Db.QueryRow(sqlQuery, username).Scan(&passwordHint)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "No password found for "+username, http.StatusNotFound)

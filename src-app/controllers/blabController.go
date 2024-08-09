@@ -13,7 +13,7 @@ import (
 
 var sqlBlabsByMe = `SELECT blabs.content, blabs.timestamp, COUNT(comments.blabber), blabs.blabid ` +
 	`FROM blabs LEFT JOIN comments ON blabs.blabid = comments.blabid ` +
-	`WHERE blabs.blabber = '%s' GROUP BY blabs.blabid ORDER BY blabs.timestamp DESC;`
+	`WHERE blabs.blabber = ? GROUP BY blabs.blabid ORDER BY blabs.timestamp DESC;`
 
 var sqlBlabsForMe = `SELECT users.username, users.blab_name, blabs.content, blabs.timestamp, COUNT(comments.blabber), blabs.blabid ` +
 	`FROM blabs INNER JOIN users ON blabs.blabber = users.username INNER JOIN listeners ON blabs.blabber = listeners.blabber ` +
@@ -41,11 +41,17 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("User is Logged In - continuing... UA=" + r.Header.Get("user-agent") + " U=" + username)
 
+	var outputs Outputs
+
 	log.Println("Executing query to get all 'Blabs for me'")
 	blabsForMe := fmt.Sprintf(sqlBlabsForMe, 10, 0)
 	blabsForMeResults, err := db.Db.Query(blabsForMe, username)
 	if err != nil {
-		log.Println("Error getting 'Blabs for me':\n" + err.Error())
+		errMsg := "Error getting 'Blabs for me':\n" + err.Error()
+		log.Println(errMsg)
+		outputs.Error = errMsg
+		view.Render(w, "feed.html", outputs)
+		return
 	}
 
 	defer blabsForMeResults.Close()
@@ -57,8 +63,11 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 		var post models.Blab
 
 		if err := blabsForMeResults.Scan(&author.Username, &author.BlabName, &post.Content, &post.PostDate, &post.CommentCount, &post.Id); err != nil {
-			log.Println("Error reading data from 'Blabs for me' query:\n" + err.Error())
-			break
+			errMsg := "Error reading data from 'Blabs for me' query:\n" + err.Error()
+			log.Println(errMsg)
+			outputs.Error = errMsg
+			view.Render(w, "feed.html", outputs)
+			return
 		}
 
 		post.Author = author
@@ -68,9 +77,46 @@ func ShowFeed(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	var outputs Outputs
 	outputs.BlabsByOthers = feedBlabs
+	outputs.CurrentUser = username
+
+	log.Println("Executing query to get all of user's Blabs")
+	blabsByMeResults, err := db.Db.Query(sqlBlabsByMe, username)
+	if err != nil {
+		errMsg := "Error getting 'Blabs for me':\n" + err.Error()
+		log.Println(errMsg)
+		outputs.Error = errMsg
+		view.Render(w, "feed.html", outputs)
+		return
+	}
+
+	defer blabsByMeResults.Close()
+
+	var myBlabs []models.Blab
+
+	for blabsByMeResults.Next() {
+		var post models.Blab
+
+		if err := blabsByMeResults.Scan(&post.Content, &post.PostDate, &post.CommentCount, &post.Id); err != nil {
+			errMsg := "Error reading data from 'Blabs by me' query:\n" + err.Error()
+			log.Println(errMsg)
+			outputs.Error = errMsg
+			view.Render(w, "feed.html", outputs)
+			return
+		}
+
+		post.PostDate = models.Timestamp(post.PostDate)
+
+		myBlabs = append(myBlabs, post)
+
+	}
+
+	outputs.BlabsByMe = myBlabs
 
 	view.Render(w, "feed.html", outputs)
+
+}
+
+func MoreFeed(w http.ResponseWriter, r *http.Request) {
 
 }
