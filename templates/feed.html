@@ -49,14 +49,14 @@
 
 		<div class="page-header">
 			<h3>
-				Hi {{.currentUser}}, welcome to Blab-a-Gag
+				Hi {{.CurrentUser}}, welcome to Blab-a-Gag
 			</h3>
 			<h4>The home of of witty one-liners</h4>
 		</div>
 
-		{{if .error}}
+		{{if .Error}}
 		<div class="alert alert-danger" role="alert">
-			{{.error}}
+			{{.Error}}
 		</div>
 		{{end}}
 
@@ -68,21 +68,21 @@
 					</div>
 					<div id="feed" class="actionBox">
 						<ul class="commentList">
-							{{range .blabsByOthers}}
+							{{range .BlabsByOthers}}
 								
 							<li>
 								<div>
 									<div class="commenterImage">
-										<img src="/images/{{.author.username}}.png" />
+										<img src="/images/{{.Author.Username}}.png" />
 									</div>
 									<div class="commentText">
-										<p class="">{{.content}}</p>
+										<p class="">{{.Content}}</p>
 										<span class="date sub-text">
-											by {{ .author.BlabName }} on {{.getPostDateString}}
+											by {{ .Author.BlabName }} on {{.PostDate}}
 										</span>
 										<br/>
 										<span class="date sub-text">
-											<a href="blab?blabid={{.id}}">{{.commentCount}} Comments</a>
+											<a href="blab?blabid={{.Id}}">{{.CommentCount}} Comments</a>
 										</span>
 									</div>
 								</div>
@@ -112,13 +112,13 @@
 							</form>
 						</div>
 						<ul class="commentList">
-							{{range .blabsByMe}}
+							{{range .BlabsByMe}}
 							<li>
 								<div class="commentText">
-									<p class="">{{.content}}</p>
-									<span class="date sub-text">by you on {{.getPostDateString}}</span><br/>
+									<p class="">{{.Content}}</p>
+									<span class="date sub-text">by you on {{.PostDate}}</span><br/>
 									<span class="date sub-text">
-										<a href="blab?blabid={{.id}}">{{.commentCount}} Comments</a> <!-- commentCount currently returns null-->
+										<a href="blab?blabid={{.Id}}">{{.CommentCount}} Comments</a> <!-- commentCount currently returns null-->
 									</span>
 								</div>
 							</li>

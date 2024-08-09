@@ -24,7 +24,7 @@ func feedHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		controllers.ShowFeed(w, r)
 	} else if r.Method == "POST" {
-
+		return
 	}
 }
 
@@ -34,6 +34,19 @@ func toolsHandler(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == "POST" {
 		controllers.ProcessTools(w, r)
 	}
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		controllers.ShowLogin(w, r)
+	} else if r.Method == "POST" {
+		print("POST Reached")
+		controllers.ProcessLogin(w, r)
+	}
+}
+
+func passwordHintHandler(w http.ResponseWriter, r *http.Request) {
+	controllers.ShowPasswordHint(w, r)
 }
 
 /*
@@ -62,9 +75,11 @@ Creates a session store
 func Routes() *mux.Router {
 	router := mux.NewRouter()
 	router.HandleFunc("/feed", feedHandler)
+	router.HandleFunc("/login", loginHandler)
 	router.HandleFunc("/tools", toolsHandler)
 	router.HandleFunc("/register", registerHandler)
 	router.HandleFunc("/register-finish", registerFinishHandler)
+	router.HandleFunc("/password-hint", passwordHintHandler)
 	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
 
 	return router

@@ -31,7 +31,6 @@
 		<div class="header clearfix">
 			<nav>
 				<ul class="nav nav-pills pull-right">
-					<!-- <li role="presentation"><a href="reset">Reset</a></li> -->
 					<li role="presentation" class="active"><a href="/login">Login</a></li>
 					<li role="presentation"><a href="/register">Register</a></li>
 				</ul>
@@ -54,7 +53,7 @@
 						<h3 class="panel-title">Please provide your username and password to login to Blab</h3>
 					</div>
 					<div class="panel-body">
-						<form method="POST" action="{{ .Action }}">
+						<form method="POST" action="login">
 							<input type="hidden" name="target" value="{{ .Target }}">
 							<table class="table table-condensed">
 								<tbody>
