@@ -301,7 +301,7 @@ func ShowBlab(w http.ResponseWriter, r *http.Request) {
 		errMsg := "Error converting blab ID:" + blabidParam + " to integer:\n" + err.Error()
 		log.Println(errMsg)
 		w.Header().Add("errorMsg", errMsg)
-		http.Redirect(w, r, "feed", http.StatusBadRequest)
+		ShowFeed(w, r)
 		return
 	}
 
