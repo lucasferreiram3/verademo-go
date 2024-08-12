@@ -113,6 +113,7 @@ Creates a session store
 func Routes() *mux.Router {
 	router := mux.NewRouter()
 	router.StrictSlash(true)
+	router.HandleFunc("/", loginHandler)
 	router.HandleFunc("/feed", feedHandler)
 	router.HandleFunc("/morefeed", moreFeedHandler)
 	router.HandleFunc("/blab", blabHandler)
