@@ -58,7 +58,7 @@ func fortune(fortuneFile string) string {
 		if fortuneFile == "fortune" {
 			fortuneResult = fortunes[rand.Intn(len(fortunes))]
 		} else if fortuneFile == "riddle" {
-			fortuneResult = fortunes[rand.Intn(len(riddles))]
+			fortuneResult = riddles[rand.Intn(len(riddles))]
 		} else {
 			fortuneResult = "No valid fortune found."
 		}
