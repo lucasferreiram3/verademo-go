@@ -455,6 +455,7 @@ func ShowProfile(w http.ResponseWriter, r *http.Request) {
 		return
 
 	}
+	output.Image = GetProfileImageFromUsername(output.Username)
 	output.Events = events
 	output.Hecklers = hecklers
 	view.Render(w, "profile.html", output)
@@ -565,7 +566,17 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			return
 		}
-		//oldImage := GetProfileImageFromUsername(oldUsername)
+		oldImage := GetProfileImageFromUsername(oldUsername)
+		if oldImage != "" {
+			extension := oldImage[strings.LastIndex(oldImage, "."):]
+			log.Println("Renaming profile image from " + oldImage + " to " + newUsername + extension)
+
+			// e := os.Rename(Original_Path, New_Path)
+			// if e != nil {
+			// 	log.Fatal(e)
+			// }
+
+		}
 
 	}
 
@@ -576,6 +587,10 @@ func GetMD5Hash(text string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// func GetProfileImageFromUsername(username){
-// 	files :=
-// }
+func GetProfileImageFromUsername(username string) string {
+	if _, err := os.Stat("resources/images/" + username + ".png"); err == nil {
+		res := username + ".png"
+		return res
+	}
+	return ""
+}
