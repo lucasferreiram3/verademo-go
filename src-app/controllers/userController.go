@@ -115,6 +115,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	} else {
 		nextView = "/feed"
 	}
+	// Check inputs before processing Query
 	log.Println("Username: " + username + " Password: " + password)
 	// Constructing SQL Query
 	sqlQuery := "SELECT username, password_hint, created_at, last_login, real_name, blab_name FROM users WHERE username = ? AND password = ?"
@@ -149,12 +150,17 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	}
 	log.Println("User found. Redirecting...")
 
-	http.SetCookie(w, &http.Cookie{Name: "username", Value: result.Username})
+	http.SetCookie(w, &http.Cookie{Name: "username", Value: result.Username, Path: "/", SameSite: http.SameSiteNoneMode, HttpOnly: true, Secure: false})
+	log.Println("All Response Cookies:")
+	for _, cookie := range req.Cookies() {
+		log.Printf("Cookie: %s = %s", cookie.Name, cookie.Value)
+	}
 
 	// Handling the "remember me"
 	if remember == "" {
 		// Store details in session
-		current_session, _ := session.Store.Get(req, "session-name")
+		current_session, _ := session.Store.Get(req, "session_username")
+		log.Println("Session Values before:", current_session.Values)
 		current_session.Values["username"] = result.Username
 		current_session.Values["password_hint"] = result.PasswordHint
 		current_session.Values["created_at"] = result.CreatedAt
@@ -162,6 +168,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		current_session.Values["real_name"] = result.RealName
 		current_session.Values["blab_name"] = result.BlabName
 		current_session.Save(req, w)
+		log.Println("Session Values after Save:", current_session.Values)
 
 		if err := current_session.Save(req, w); err != nil {
 			log.Println("Error saving session:", err)
