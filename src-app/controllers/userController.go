@@ -6,9 +6,11 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"verademo-go/src-app/models"
 	sqlite "verademo-go/src-app/shared/db"
 	session "verademo-go/src-app/shared/session"
@@ -261,45 +263,6 @@ func ShowPasswordHint(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func createFromRequest(req *http.Request) (*User, error) {
-	cookie, err := req.Cookie("user")
-	if err != nil {
-		log.Println("No user cookie.")
-		return nil, nil
-	}
-
-	cookieValue := cookie.Value
-	decoded, err := base64.StdEncoding.DecodeString(cookieValue)
-	if err != nil {
-		log.Println("Error decoding cookie:", err)
-		return nil, err
-	}
-
-	var user User
-	if err := json.Unmarshal(decoded, &user); err != nil {
-		log.Println("Error unmarshaling user from cookie:", err)
-		return nil, err
-	}
-
-	log.Println("Username is:", user.Username)
-	return &user, nil
-}
-
-func updateInResponse(currentUser interface{}, w http.ResponseWriter) error {
-	userJSON, err := json.Marshal(currentUser)
-	if err != nil {
-		return err
-	}
-
-	encoded := base64.StdEncoding.EncodeToString(userJSON)
-	http.SetCookie(w, &http.Cookie{
-		Name:  "user",
-		Value: encoded,
-		Path:  "/",
-	})
-	return nil
-}
-
 func ShowRegister(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Entering ShowRegister")
 
@@ -462,6 +425,7 @@ func ShowProfile(w http.ResponseWriter, r *http.Request) {
 		return
 
 	}
+	output.Image = GetProfileImageFromUsername(output.Username)
 	output.Events = events
 	output.Hecklers = hecklers
 	view.Render(w, "profile.html", output)
@@ -474,11 +438,17 @@ type JSONResponse struct {
 
 func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 	log.Println("Entering ProcessProfile")
-
+	// Read in form values
 	realName := r.FormValue("realName")
 	blabName := r.FormValue("blabName")
 	username := r.FormValue("username")
-	//TODO: Check for supplied file
+	// in, header, fileErr := req.FormFile("file")
+
+	// defer in.Close()
+	// out, err := os.OpenFile(header.Filename)
+
+	//set directory for images
+	dir := "/resources/images/"
 
 	current_session := session.Instance(r)
 	sessionUsername := current_session.Values["username"].(string)
@@ -564,6 +534,15 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 			_, err := tx.Exec(sqlStrQueries[i], newUsername, oldUsername)
 			if err != nil {
 				log.Println(err)
+				frame.Message = "<script>alert('Database transactions failed');</script>"
+				response, e := json.Marshal(frame)
+				if e != nil {
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				}
+				w.Header().Set("Content-type", "application/json")
+				w.WriteHeader(http.StatusConflict)
+				os.Stdout.Write(response)
+				w.Write(response)
 				return
 			}
 		}
@@ -572,9 +551,43 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			return
 		}
-		//oldImage := GetProfileImageFromUsername(oldUsername)
+		oldImage := GetProfileImageFromUsername(oldUsername)
+		if oldImage != "" {
+
+			extension := oldImage[strings.LastIndex(oldImage, "."):]
+			newImage := newUsername + extension
+			log.Println("Renaming profile image from " + oldImage + " to " + newImage)
+
+			e := os.Rename(filepath.Join(dir, oldImage), filepath.Join(dir, newImage))
+			if e != nil {
+				frame.Message = "<script>alert('An error occurred, please try again.');</script>"
+				response, err := json.Marshal(frame)
+				if err != nil {
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				}
+				w.Header().Set("Content-type", "application/json")
+				w.WriteHeader(http.StatusConflict)
+				os.Stdout.Write(response)
+				w.Write(response)
+				log.Fatal(e)
+			}
+
+		}
+		//Update session and cookie logic
+		current_session.Values["username"] = username
+		//TODO: Update cookie logic and remember me func.
 
 	}
+	// Update user profile image
+	// if (fileErr == nil) {
+	// 	oldImage := GetProfileImageFromUsername(username)
+	// 	if oldImage != "" {
+	// 		err := os.Remove(filepath.Join(dir,oldImage))
+	// 		if err != nil {
+	// 			log.Println("failed to remove existing file")
+	// 		}
+	// 	}
+	// }
 
 }
 
@@ -583,6 +596,50 @@ func GetMD5Hash(text string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// func GetProfileImageFromUsername(username){
-// 	files :=
-// }
+func GetProfileImageFromUsername(username string) string {
+	imageFiles := os.DirFS("/resources/images")
+	_, err := fs.ReadFile(imageFiles, username+".png")
+	if err != nil {
+		return ""
+	}
+	return username + ".png"
+}
+
+func createFromRequest(req *http.Request) (*User, error) {
+	cookie, err := req.Cookie("user")
+	if err != nil {
+		log.Println("No user cookie.")
+		return nil, nil
+	}
+
+	cookieValue := cookie.Value
+	decoded, err := base64.StdEncoding.DecodeString(cookieValue)
+	if err != nil {
+		log.Println("Error decoding cookie:", err)
+		return nil, err
+	}
+
+	var user User
+	if err := json.Unmarshal(decoded, &user); err != nil {
+		log.Println("Error unmarshaling user from cookie:", err)
+		return nil, err
+	}
+
+	log.Println("Username is:", user.Username)
+	return &user, nil
+}
+
+func updateInResponse(currentUser interface{}, w http.ResponseWriter) error {
+	userJSON, err := json.Marshal(currentUser)
+	if err != nil {
+		return err
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(userJSON)
+	http.SetCookie(w, &http.Cookie{
+		Name:  "user",
+		Value: encoded,
+		Path:  "/",
+	})
+	return nil
+}
