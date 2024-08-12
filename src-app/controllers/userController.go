@@ -51,7 +51,7 @@ func ShowLogin(w http.ResponseWriter, req *http.Request) {
 	target := req.URL.Query().Get("target")
 	username := req.URL.Query().Get("username")
 
-	current_session, err := req.Cookie("session_username")
+	current_session, err := req.Cookie(session.Name)
 	if err == nil && current_session.Value != "" {
 		log.Println("User is already logged in - redirecting...")
 		if target != "" {
@@ -71,7 +71,7 @@ func ShowLogin(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if user != nil {
-		http.SetCookie(w, &http.Cookie{Name: "session_username", Value: user.Username})
+		http.SetCookie(w, &http.Cookie{Name: session.Name, Value: user.Username})
 		log.Println("User is remembered - redirecting...")
 		if target != "" {
 			http.Redirect(w, req, target, http.StatusFound)
@@ -108,15 +108,11 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	username := req.FormValue("username")
 	password := req.FormValue("password")
 	remember := req.FormValue("remember")
-	target := req.FormValue("target")
 
 	var nextView string
 
-	if target != "" {
-		nextView = target
-	} else {
-		nextView = "/feed"
-	}
+	nextView = "/feed"
+
 	// Check inputs before processing Query
 	log.Println("Username: " + username + " Password: " + password)
 	// Constructing SQL Query
@@ -153,10 +149,6 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	log.Println("User found. Redirecting...")
 
 	http.SetCookie(w, &http.Cookie{Name: "username", Value: result.Username, Path: "/", SameSite: http.SameSiteNoneMode, HttpOnly: true, Secure: false})
-	log.Println("All Response Cookies:")
-	for _, cookie := range req.Cookies() {
-		log.Printf("Cookie: %s = %s", cookie.Name, cookie.Value)
-	}
 
 	// Handling the "remember me"
 	if remember == "" {
@@ -232,19 +224,12 @@ func ProcessLogout(w http.ResponseWriter, req *http.Request) {
 	current_session, _ := session.Store.Get(req, session.Name)
 
 	// Clearing session values
-	current_session.Values["username"] = nil
-	current_session.Values["totp_username"] = nil
+	current_session.Options.MaxAge = -1
+	current_session.Save(req, w)
 
-	// Save updated session values
-	err := current_session.Save(req, w)
-	if err != nil {
-		log.Println("Error saving session:", err)
-		http.Error(w, "An error occurred", http.StatusInternalServerError)
-		return
-	}
-
-	// Delete session cookies
+	// Delete cookies
 	http.SetCookie(w, &http.Cookie{Name: "username", MaxAge: -1, Path: "/"})
+	http.SetCookie(w, &http.Cookie{Name: session.Name, MaxAge: -1, Path: "/"})
 
 	log.Println("Successfully logged out, redirecting to login page....")
 	http.Redirect(w, req, "/login", http.StatusSeeOther)
