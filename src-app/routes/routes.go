@@ -46,8 +46,7 @@ func blabbersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		controllers.ShowBlabbers(w, r)
 	} else if r.Method == "POST" {
-		return
-		// controllers.ProcessBlab(w, r)
+		controllers.ProcessBlabbers(w, r)
 	}
 }
 
