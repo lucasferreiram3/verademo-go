@@ -274,7 +274,7 @@ func ProcessFeed(w http.ResponseWriter, r *http.Request) {
 
 func ShowBlab(w http.ResponseWriter, r *http.Request) {
 
-	// Struct for variables to pass to the feed template
+	// Struct for variables to pass to the blab template
 	type BlabVars struct {
 		Content  string
 		BlabName string
@@ -290,7 +290,7 @@ func ShowBlab(w http.ResponseWriter, r *http.Request) {
 
 	if sess.Values["username"] == nil {
 		log.Println("User is not Logged In - redirecting...")
-		http.Redirect(w, r, "login?target=feed", http.StatusFound)
+		http.Redirect(w, r, "login?target=blab?blabid="+blabidParam, http.StatusFound)
 		return
 	}
 
@@ -399,7 +399,7 @@ func ProcessBlab(w http.ResponseWriter, r *http.Request) {
 
 	if sess.Values["username"] == nil {
 		log.Println("User is not Logged In - redirecting...")
-		http.Redirect(w, r, "login?target=feed", http.StatusFound)
+		http.Redirect(w, r, "login?target=blab?blabid="+blabid, http.StatusFound)
 		return
 	}
 
@@ -444,4 +444,76 @@ func ProcessBlab(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/blab?blabid="+blabid, http.StatusSeeOther)
+}
+
+func ShowBlabbers(w http.ResponseWriter, r *http.Request) {
+	// Struct for variables to pass to the feed template
+	type BlabbersVars struct {
+		Blabbers []models.Blabber
+		Error    string
+	}
+
+	sort := r.URL.Query().Get("sort")
+	if sort == "" {
+		sort = "blab_name ASC"
+	}
+
+	// Check session username
+	sess := session.Instance(r)
+
+	if sess.Values["username"] == nil {
+		log.Println("User is not Logged In - redirecting...")
+		http.Redirect(w, r, "login?target=blabbers", http.StatusFound)
+		return
+	}
+
+	username := sess.Values["username"].(string)
+
+	log.Println("User is Logged In - continuing... UA=" + r.Header.Get("user-agent") + " U=" + username)
+
+	var outputs BlabbersVars
+
+	blabbersSql := "SELECT users.username," + " users.blab_name," + " users.created_at," +
+		" SUM(iif(listeners.listener=?, 1, 0)) as listeners," +
+		" SUM(iif(listeners.status='Active',1,0)) as listening" +
+		" FROM users LEFT JOIN listeners ON users.username = listeners.blabber" +
+		" WHERE users.username NOT IN (\"admin\",\"admin-totp\",?)" + " GROUP BY users.username" + " ORDER BY " + sort + ";"
+
+	// Get the list of blabbers
+	log.Println("Executing query to get all blabbers")
+	blabbersResults, err := sqlite.DB.Query(blabbersSql, username, username)
+	if err != nil {
+		errMsg := "Error getting blab comments: \n" + err.Error()
+		log.Println(errMsg)
+		outputs.Error = errMsg
+		view.Render(w, "blabbers.html", outputs)
+		return
+	}
+
+	// Close the results object when they have been used up
+	defer blabbersResults.Close()
+
+	// Add each blabber found to a variable to be passed to the template
+	var blabbers []models.Blabber
+
+	for blabbersResults.Next() {
+		var blabber models.Blabber
+
+		if err := blabbersResults.Scan(&blabber.Username, &blabber.BlabName, &blabber.CreatedDate, &blabber.NumberListeners, &blabber.NumberListening); err != nil {
+			errMsg := "Error reading data from blabbers: \n" + err.Error()
+			log.Println(errMsg)
+			outputs.Error = errMsg
+			view.Render(w, "blabbers.html", outputs)
+			return
+		}
+
+		blabber.CreatedDate = models.Timestamp(blabber.CreatedDate)
+
+		blabbers = append(blabbers, blabber)
+
+	}
+
+	outputs.Blabbers = blabbers
+
+	view.Render(w, "blabbers.html", outputs)
 }
