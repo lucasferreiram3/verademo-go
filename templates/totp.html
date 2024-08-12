@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="">
+<meta name="author" content="">
+
+<title>Login to Blab (TOTP)</title>
+
+<!-- Bootstrap core CSS -->
+<link href="resources/css/bootstrap.min.css" rel="stylesheet">
+<!-- Bootstrap theme -->
+<link href="resources/css/bootstrap-theme.min.css" rel="stylesheet">
+
+<!-- Custom styles for this template -->
+<link href="resources/css/pwm.css" rel="stylesheet">
+
+</head>
+
+<body role="document">
+
+    <div class="container">
+        <div class="header clearfix">
+            <nav>
+                <ul class="nav nav-pills pull-right">
+                    <li role="presentation"><a href="/login">Login</a></li>
+                    <li role="presentation"><a href="/register">Register</a></li>
+                </ul>
+            </nav>
+            <img src="resources/images/Tokyoship_Talk_icon.svg" height="100" width="100">
+        </div>
+    </div>
+
+    <div class="container theme-showcase" role="main">
+        <div class="page-header">
+            <h3>Login (TOTP)</h3>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">Please provide your TOTP code to login to Blab</h3>
+                    </div>
+                    <div class="panel-body">
+                        <form method="POST" action="totp">
+                            <table class="table table-condensed">
+                                <tbody>
+                                    <tr>
+                                        <td>TOTP</td>
+                                        <td>
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" name="totp" value="">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td></td>
+                                        <td><button type="submit" class="btn btn-primary" id="submit" name="Submit" value="Login">Submit</button></td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var totpSecret = "{{ .Secret }}";
+        console.log("TOTP secret: " + totpSecret);
+    </script>
+</body>
+</html>
+
+

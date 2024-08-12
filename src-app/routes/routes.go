@@ -70,6 +70,14 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 func passwordHintHandler(w http.ResponseWriter, r *http.Request) {
 	controllers.ShowPasswordHint(w, r)
 }
+func totpHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		controllers.ShowTotp(w, r)
+	} else if r.Method == "POST" {
+		//controllers.ProcessTotp(w, r)
+	}
+
+}
 
 /*
 Handler function used by router for register page.
@@ -118,6 +126,7 @@ func Routes() *mux.Router {
 	router.HandleFunc("/blab", blabHandler)
 	router.HandleFunc("/blabbers", blabbersHandler)
 	router.HandleFunc("/login", loginHandler)
+	router.HandleFunc("/totp", totpHandler)
 	router.HandleFunc("/logout", controllers.ProcessLogout)
 	router.HandleFunc("/tools", toolsHandler)
 	router.HandleFunc("/register", registerHandler)

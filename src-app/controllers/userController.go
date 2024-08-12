@@ -204,6 +204,27 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	http.Redirect(w, req, nextView, http.StatusSeeOther)
 
 }
+func ShowTotp(w http.ResponseWriter, req *http.Request) {
+	username := req.URL.Query().Get("totp_username")
+	var totpSecret string
+	log.Println("Entering ShowTotp for : " + username)
+
+	sqlQuery := "SELECT totp_secret FROM users WHERE username = ?"
+
+	err := sqlite.DB.QueryRow(sqlQuery, username).Scan(&totpSecret)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Println("User (TOTP) not found")
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		log.Println(err)
+		http.Error(w, "An error has occurred", http.StatusInternalServerError)
+		return
+	}
+
+	view.Render(w, "totp.html", nil)
+}
 
 func ProcessLogout(w http.ResponseWriter, req *http.Request) {
 	log.Println("Entering ProcessLogout")
