@@ -119,6 +119,7 @@ func Routes() *mux.Router {
 	router.HandleFunc("/blab", blabHandler)
 	router.HandleFunc("/blabbers", blabbersHandler)
 	router.HandleFunc("/login", loginHandler)
+	router.HandleFunc("/logout", controllers.ProcessLogout)
 	router.HandleFunc("/tools", toolsHandler)
 	router.HandleFunc("/register", registerHandler)
 	router.HandleFunc("/reset", resetHandler)

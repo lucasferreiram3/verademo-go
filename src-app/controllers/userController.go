@@ -161,8 +161,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	// Handling the "remember me"
 	if remember == "" {
 		// Store details in session
-		current_session, _ := session.Store.Get(req, "session_username")
-		log.Println("Session Values before:", current_session.Values)
+		current_session, _ := session.Store.Get(req, session.Name)
 		current_session.Values["username"] = result.Username
 		current_session.Values["password_hint"] = result.PasswordHint
 		current_session.Values["created_at"] = result.CreatedAt
@@ -170,7 +169,6 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		current_session.Values["real_name"] = result.RealName
 		current_session.Values["blab_name"] = result.BlabName
 		current_session.Save(req, w)
-		log.Println("Session Values after Save:", current_session.Values)
 
 		if err := current_session.Save(req, w); err != nil {
 			log.Println("Error saving session:", err)
@@ -190,13 +188,13 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	// TOTP Handling
 	if len(username) >= 4 && username[len(username)-4:] == "totp" {
 		log.Println("User " + username + " Has TOTP Enabled!")
-		current_session, _ := session.Store.Get(req, "session-name")
+		current_session, _ := session.Store.Get(req, session.Name)
 		current_session.Values["totp_username"] = result.Username
 		current_session.Save(req, w)
 		nextView = "/totp"
 	} else {
 		log.Println("Setting session username to: " + username)
-		current_session, _ := session.Store.Get(req, "session-name")
+		current_session, _ := session.Store.Get(req, session.Name)
 		current_session.Values["username"] = result.Username
 		current_session.Save(req, w)
 		nextView = "/feed"
@@ -207,25 +205,29 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func processLogout(w http.ResponseWriter, r *http.Request) {
-	log.Println("Entering processLogout")
+func ProcessLogout(w http.ResponseWriter, req *http.Request) {
+	log.Println("Entering ProcessLogout")
 
-	current_session, _ := session.Store.Get(r, "session-name")
+	current_session, _ := session.Store.Get(req, session.Name)
 
-	current_session.Values["username"] = ""
+	// Clearing session values
+	current_session.Values["username"] = nil
+	current_session.Values["totp_username"] = nil
 
-	err := current_session.Save(r, w)
+	// Save updated session values
+	err := current_session.Save(req, w)
 	if err != nil {
 		log.Println("Error saving session:", err)
+		http.Error(w, "An error occurred", http.StatusInternalServerError)
+		return
 	}
 
-	// Optionally update response
-	if err := updateInResponse(current_session.Values["username"], w); err != nil {
-		log.Println("Error updating response:", err)
-	}
+	// Delete session cookies
+	http.SetCookie(w, &http.Cookie{Name: "username", MaxAge: -1, Path: "/"})
 
-	// Redirect to login page
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	log.Println("Successfully logged out, redirecting to login page....")
+	http.Redirect(w, req, "/login", http.StatusSeeOther)
+
 }
 
 func ShowPasswordHint(w http.ResponseWriter, req *http.Request) {
