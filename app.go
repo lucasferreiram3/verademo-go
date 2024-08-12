@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+
 	session.Configure(session.Session{Name: "verademo", SecretKey: "key"})
 	var database *sql.DB
 	database, _ = db.InitDB()
