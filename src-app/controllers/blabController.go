@@ -142,7 +142,7 @@ func MoreFeed(w http.ResponseWriter, r *http.Request) {
 	lenParam := r.URL.Query().Get("len")
 
 	// Template for response
-	template := "<li><div>" + "\t<div class=\"commenterImage\">" + "\t\t<img src=\"/static/images/%s.png\">" +
+	template := "<li><div>" + "\t<div class=\"commenterImage\">" + "\t\t<img src=\"resources/images/%s.png\">" +
 		"\t</div>" + "\t<div class=\"commentText\">" + "\t\t<p>%s</p>" +
 		"\t\t<span class=\"date sub-text\">by %s on %s</span><br>" +
 		"\t\t<span class=\"date sub-text\"><a href=\"blab?blabid=%d\">%d Comments</a></span>" + "\t</div>" +
@@ -260,7 +260,6 @@ func ProcessFeed(w http.ResponseWriter, r *http.Request) {
 	if rows != 1 {
 		errMsg := fmt.Sprintf("Expected to affect 1 row, affected %d.", rows)
 		log.Println(errMsg)
-		w.Header().Add("errorMsg", errMsg)
 		http.SetCookie(w, &http.Cookie{
 			Name:  "errorMsg",
 			Value: errMsg,
@@ -473,6 +472,16 @@ func ShowBlabbers(w http.ResponseWriter, r *http.Request) {
 
 	var outputs BlabbersVars
 
+	// Set an error if one was given in response (usually taken from ProcessBlabbers)
+	resError, err := r.Cookie("errorMsg")
+	if err == nil {
+		outputs.Error = resError.Value
+		http.SetCookie(w, &http.Cookie{
+			Name:   "errorMsg",
+			MaxAge: -1,
+		})
+	}
+
 	blabbersSql := "SELECT users.username," + " users.blab_name," + " users.created_at," +
 		" SUM(iif(listeners.listener=?, 1, 0)) as listeners," +
 		" SUM(iif(listeners.status='Active',1,0)) as listening" +
@@ -516,4 +525,156 @@ func ShowBlabbers(w http.ResponseWriter, r *http.Request) {
 	outputs.Blabbers = blabbers
 
 	view.Render(w, "blabbers.html", outputs)
+}
+
+func ProcessBlabbers(w http.ResponseWriter, r *http.Request) {
+	blabberUsername := r.FormValue("blabberUsername")
+	command := r.FormValue("command")
+
+	// Check session username
+	sess := session.Instance(r)
+
+	if sess.Values["username"] == nil {
+		log.Println("User is not Logged In - redirecting...")
+		http.Redirect(w, r, "login?target=blabbers", http.StatusFound)
+		return
+	}
+
+	username := sess.Values["username"].(string)
+
+	log.Println("User is Logged In - continuing... UA=" + r.Header.Get("user-agent") + " U=" + username)
+
+	if command == "" {
+		errMsg := "Empty command provided..."
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "blabbers", http.StatusFound)
+		return
+	}
+
+	sqlQuery := ""
+	var eventAction string
+
+	switch command {
+	case "ignore":
+		sqlQuery = "DELETE FROM listeners WHERE blabber=? AND listener=?;"
+		eventAction = " is now ignoring "
+	case "listen":
+		sqlQuery = "INSERT INTO listeners (blabber, listener, status) values (?, ?, 'Active');"
+		eventAction = " started listening to "
+	default:
+		errMsg := "Invalid Command"
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "blabbers", http.StatusFound)
+		return
+	}
+
+	// Execute the command
+	log.Println("Executing command")
+	result, err := sqlite.DB.Exec(sqlQuery, blabberUsername, username)
+	if err != nil {
+		errMsg := "Error executing command: \n" + err.Error()
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "blabbers", http.StatusSeeOther)
+		return
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		errMsg := "Error executing command: \n" + err.Error()
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "blabbers", http.StatusSeeOther)
+		return
+	}
+	if rows != 1 {
+		errMsg := fmt.Sprintf("Expected to affect 1 row, affected %d.", rows)
+		log.Println(errMsg)
+		w.Header().Add("errorMsg", errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "blabbers", http.StatusSeeOther)
+		return
+	}
+
+	// Get blab name of target user
+	var blabName string
+	sqlQuery = "SELECT blab_name FROM users WHERE username = '" + blabberUsername + "'"
+	log.Println("Executing query to get blab name of the target user")
+	queryResult := sqlite.DB.QueryRow(sqlQuery)
+	err = queryResult.Scan(&blabName)
+	switch {
+	case err == sql.ErrNoRows:
+		errMsg := "No user found with username:" + blabberUsername + " \n" + err.Error()
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "blabbers", http.StatusSeeOther)
+		return
+	case err != nil:
+		errMsg := "Error getting target's blab name: \n" + err.Error()
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "blabbers", http.StatusSeeOther)
+		return
+	}
+
+	// Insert into event history
+	event := username + eventAction + blabberUsername + " (" + blabName + ")"
+	sqlQuery = "INSERT INTO users_history (blabber, event) VALUES (\"" + username + "\", \"" + event + "\")"
+	result, err = sqlite.DB.Exec(sqlQuery)
+	if err != nil {
+		errMsg := "Error adding event into history: \n" + err.Error()
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "blabbers", http.StatusSeeOther)
+		return
+	}
+	rows, err = result.RowsAffected()
+	if err != nil {
+		errMsg := "Error adding event into history: \n" + err.Error()
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "blabbers", http.StatusSeeOther)
+		return
+	}
+	if rows != 1 {
+		errMsg := fmt.Sprintf("Expected to affect 1 row, affected %d.", rows)
+		log.Println(errMsg)
+		w.Header().Add("errorMsg", errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, r, "blabbers", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "blabbers", http.StatusSeeOther)
 }
