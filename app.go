@@ -17,6 +17,6 @@ func main() {
 	log.Print("\nStarting VerademoGO....")
 	log.Print("\nVerademoGO is running.")
 
-	log.Fatal(http.ListenAndServe(":8080", router.Routes()))
+	log.Fatal(http.ListenAndServe(":8000", router.Routes()))
 	database.Close()
 }
