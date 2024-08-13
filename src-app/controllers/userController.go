@@ -55,14 +55,14 @@ func ShowLogin(w http.ResponseWriter, req *http.Request) {
 	outputs.Target = target
 
 	current_session := session.Instance(req)
-	// if current_session.Values["username"] != nil {
-	// 	log.Println("User is already logged in - redirecting...")
-	// 	if target == "" || target == "login" {
-	// 		target = "/feed"
-	// 	}
-	// 	http.Redirect(w, req, target, http.StatusFound)
-	// 	return
-	// }
+	if current_session.Values["username"] != nil {
+		log.Println("User is already logged in - redirecting...")
+		if target == "" || target == "login" {
+			target = "/feed"
+		}
+		http.Redirect(w, req, target, http.StatusFound)
+		return
+	}
 
 	// Set an error if one was given in response (usually taken from ProcessLogin)
 	resError, err := req.Cookie("errorMsg")
