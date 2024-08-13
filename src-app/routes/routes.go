@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"embed"
 	"net/http"
 	"verademo-go/src-app/controllers"
 
@@ -10,6 +11,13 @@ import (
 type Page struct {
 	Title string
 	Body  []byte
+}
+
+// Set the embedded files
+var resources embed.FS
+
+func SetResources(r embed.FS) {
+	resources = r
 }
 
 /**
@@ -135,7 +143,7 @@ func Routes() *mux.Router {
 	router.HandleFunc("/register-finish", registerFinishHandler)
 	router.HandleFunc("/password-hint", passwordHintHandler)
 	router.HandleFunc("/profile", profileHandler)
-	router.PathPrefix("/resources/").Handler(http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
+	router.PathPrefix("/resources/").Handler(http.FileServer(http.FS(resources)))
 	http.Handle("/", router)
 
 	return router

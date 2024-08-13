@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"runtime"
 	sqlite "verademo-go/src-app/shared/db"
 	view "verademo-go/src-app/shared/view"
 )
@@ -21,6 +23,7 @@ func ProcessReset(w http.ResponseWriter, r *http.Request) {
 
 	var outputs Error
 
+	// Make sure user confirmed reset
 	if confirm != "Confirm" {
 		errMsg := "Check the checkbox to confirm that you want to reset the database."
 		log.Println(errMsg)
@@ -29,9 +32,25 @@ func ProcessReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	os.Remove("db.sqlite3")
+	// Get path of db folder
+	// Get the current file
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		errMsg := "Error getting current file."
+		log.Println(errMsg)
+		outputs.Error = errMsg
+		view.Render(w, "reset.html", outputs)
+		return
+	}
 
-	schema, err := os.ReadFile("blab_schema.sql")
+	// Get the path to the database folder
+	dir := filepath.Join(filepath.Dir(currentFile), "..", "..", "db")
+
+	// Delete the old database
+	os.Remove(filepath.Join(dir, "db.sqlite3"))
+
+	// Read the schema file
+	schema, err := os.ReadFile(filepath.Join(dir, "blab_schema.sql"))
 	if err != nil {
 		errMsg := "Failed to read schema file: \n" + err.Error()
 		log.Println(errMsg)
@@ -43,7 +62,7 @@ func ProcessReset(w http.ResponseWriter, r *http.Request) {
 	// Open the new database
 	sqlite.OpenDB()
 
-	// Execute the schema to create tables and other database structures
+	// Execute the schema
 	_, err = sqlite.DB.Exec(string(schema))
 	if err != nil {
 		errMsg := "Error executing schema: \n" + err.Error()

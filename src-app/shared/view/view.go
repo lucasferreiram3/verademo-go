@@ -1,12 +1,17 @@
 package view
 
 import (
+	"embed"
 	"net/http"
 	"text/template"
 )
 
 // Set up templates
-var templates = template.Must(template.ParseGlob("templates/*.html"))
+var templates *template.Template
+
+func ParseTemplates(t embed.FS) {
+	templates = template.Must(template.ParseFS(t, "templates/*.html"))
+}
 
 // data is a struct with the variables to be passed into the template
 func Render(w http.ResponseWriter, filename string, data any) {
