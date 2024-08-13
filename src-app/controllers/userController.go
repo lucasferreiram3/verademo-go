@@ -36,9 +36,6 @@ type Output struct {
 	BlabName   string
 	TotpSecret string
 }
-type LoginVars struct {
-	Error string
-}
 
 func ShowLogin(w http.ResponseWriter, req *http.Request) {
 
