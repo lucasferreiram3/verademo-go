@@ -13,7 +13,7 @@ func main() {
 
 	session.Configure(session.Session{Name: "verademo", SecretKey: "key"})
 	var database *sql.DB
-	database, _ = db.InitDB()
+	database, _ = db.OpenDB()
 	log.Print("\nStarting VerademoGO....")
 	log.Print("\nVerademoGO is running.")
 
