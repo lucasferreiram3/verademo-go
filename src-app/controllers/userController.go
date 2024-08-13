@@ -45,6 +45,9 @@ type Output struct {
 	BlabName   string
 	TotpSecret string
 }
+type LoginVars struct {
+	Error string
+}
 
 func ShowLogin(w http.ResponseWriter, req *http.Request) {
 	target := req.URL.Query().Get("target")
@@ -137,8 +140,13 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	// In case user does not exist
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Println("User not found")
+			var outputs LoginVars
+			/*log.Println("User not found")
 			http.Error(w, "Login failed. Please try again.", http.StatusUnauthorized)
+			return*/
+			errMsg := "Login failed. Please try again."
+			outputs.Error = errMsg
+			view.Render(w, "login.html", outputs)
 			return
 		}
 		log.Println(err)
