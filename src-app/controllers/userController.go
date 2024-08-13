@@ -18,19 +18,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"strings"
-	"time"
 
 	"github.com/pquerna/otp/totp"
 )
 
-type User struct {
-	Username     string
-	PasswordHint string
-	CreatedAt    time.Time
-	LastLogin    time.Time
-	RealName     string
-	BlabName     string
-}
 type Account struct {
 	Error    string
 	Username string
@@ -47,29 +38,50 @@ type Output struct {
 }
 
 func ShowLogin(w http.ResponseWriter, req *http.Request) {
+
+	type LoginVars struct {
+		Target string
+		Error  string
+	}
+
 	target := req.URL.Query().Get("target")
 	username := req.URL.Query().Get("username")
 
-	current_session, err := session.Store.Get(req, session.Name)
-	if err == nil && current_session.Values["username"] != nil {
-		log.Println("User is already logged in - redirecting...")
-		if target == "" || target == "/login" {
-			target = "/feed"
-		}
-		http.Redirect(w, req, target, http.StatusFound)
-		return
+	var outputs LoginVars
+
+	outputs.Target = target
+
+	current_session := session.Instance(req)
+	// if current_session.Values["username"] != nil {
+	// 	log.Println("User is already logged in - redirecting...")
+	// 	if target == "" || target == "login" {
+	// 		target = "/feed"
+	// 	}
+	// 	http.Redirect(w, req, target, http.StatusFound)
+	// 	return
+	// }
+
+	// Set an error if one was given in response (usually taken from ProcessLogin)
+	resError, err := req.Cookie("errorMsg")
+	if err == nil {
+		outputs.Error = resError.Value
+		http.SetCookie(w, &http.Cookie{
+			Name:   "errorMsg",
+			MaxAge: -1,
+		})
 	}
 
 	user, err := createFromRequest(req)
-
 	if err != nil {
-		log.Println("Error creating user from request:", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		errMsg := "Error creating user from request:" + err.Error()
+		log.Println(errMsg)
+		outputs.Error = errMsg
+		view.Render(w, "login.html", outputs)
 		return
-	}
-
-	if user != nil {
-		http.SetCookie(w, &http.Cookie{Name: session.Name, Value: user.Username})
+		// http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	} else if user != nil {
+		current_session.Values["username"] = user.Username
+		_ = current_session.Save(req, w)
 		log.Println("User is remembered - redirecting...")
 		if target != "" {
 			http.Redirect(w, req, target, http.StatusFound)
@@ -81,54 +93,38 @@ func ShowLogin(w http.ResponseWriter, req *http.Request) {
 		log.Println("User is not remembered")
 	}
 
-	if username == "" {
-		username = ""
-	}
-
-	if target == "" {
-		target = ""
-	}
 	log.Println("Entering showLogin with username " + username + " and target " + target)
 
-	view.Render(w, "login.html", nil)
+	view.Render(w, "login.html", outputs)
 }
 
 func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	log.Println("Entering processLogin")
 
-	// Form data check
-	err := req.ParseForm()
-	if err != nil {
-		http.Error(w, "Invalid form data", http.StatusBadRequest)
-		return
-	}
-
 	username := req.FormValue("username")
 	password := req.FormValue("password")
 	remember := req.FormValue("remember")
+	target := req.FormValue("target")
 
 	var nextView string
 
-	nextView = "/feed"
+	if target == "" {
+		nextView = "feed"
+	} else {
+		nextView = target
+	}
 
 	// Check inputs before processing Query
 	log.Println("Username: " + username + " Password: " + password)
 	// Constructing SQL Query, using COALESECE in case of null password hints (new totp users that are manually registered were running into sql errors, this rectifies that)
 	sqlQuery := "SELECT username, COALESCE(password_hint, '') as password_hint,  created_at, last_login, real_name, blab_name FROM users WHERE username = ? AND password = ?"
 
-	result := struct {
-		Username     string
-		PasswordHint string
-		CreatedAt    string
-		LastLogin    string
-		RealName     string
-		BlabName     string
-	}{}
+	var result models.User
 
-	err = sqlite.DB.QueryRow(sqlQuery, username, utils.GetMD5Hash(password)).Scan(
+	err := sqlite.DB.QueryRow(sqlQuery, username, utils.GetMD5Hash(password)).Scan(
 		&result.Username,
 		&result.PasswordHint,
-		&result.CreatedAt,
+		&result.CreatedDate,
 		&result.LastLogin,
 		&result.RealName,
 		&result.BlabName,
@@ -137,42 +133,40 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	// In case user does not exist
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Println("User not found")
-			http.Error(w, "Login failed. Please try again.", http.StatusUnauthorized)
+			errMsg := "Username or password incorrect. Please try again."
+			log.Println(errMsg)
+			http.SetCookie(w, &http.Cookie{
+				Name:  "errorMsg",
+				Value: errMsg,
+			})
+			http.Redirect(w, req, "/login?target="+target, http.StatusSeeOther)
 			return
 		}
-		log.Println(err)
-		http.Error(w, "An error has occured", http.StatusInternalServerError)
+		errMsg := "An error has occurred. Please try again. \n" + err.Error()
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, req, "/login?target="+target, http.StatusSeeOther)
+		return
+		// http.Error(w, "An error has occured", http.StatusInternalServerError)
 	}
-	log.Println("User found. Redirecting...")
 
-	http.SetCookie(w, &http.Cookie{Name: "username", Value: result.Username, Path: "/", SameSite: http.SameSiteNoneMode, HttpOnly: true, Secure: false})
+	log.Println("User found.")
 
-	// Handling the "remember me"
-	if remember == "" {
-		// Store details in session
-		current_session, _ := session.Store.Get(req, session.Name)
-		current_session.Values["username"] = result.Username
-		current_session.Values["password_hint"] = result.PasswordHint
-		current_session.Values["created_at"] = result.CreatedAt
-		current_session.Values["last_login"] = result.LastLogin
-		current_session.Values["real_name"] = result.RealName
-		current_session.Values["blab_name"] = result.BlabName
-		current_session.Save(req, w)
-
-		if err := current_session.Save(req, w); err != nil {
-			log.Println("Error saving session:", err)
-			http.Error(w, "An error occurred", http.StatusInternalServerError)
-			return
-		}
-
-	}
 	// Updating last login time
 	_, err = sqlite.DB.Exec("UPDATE users SET last_login=datetime('now') WHERE username='" + result.Username + "';")
 	if err != nil {
-		log.Println("Error updating last login for user: ", err)
-		http.Error(w, "An error occurred", http.StatusInternalServerError)
+		errMsg := "Error updating last login for user: \n" + err.Error()
+		log.Println(errMsg)
+		http.SetCookie(w, &http.Cookie{
+			Name:  "errorMsg",
+			Value: errMsg,
+		})
+		http.Redirect(w, req, "/login?target="+target, http.StatusSeeOther)
 		return
+		// http.Error(w, "An error occurred", http.StatusInternalServerError)
 	}
 
 	// TOTP Handling
@@ -183,11 +177,26 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		current_session.Save(req, w)
 		nextView = "/totp?totp_username=" + result.Username
 	} else {
-		log.Println("Setting session username to: " + username)
-		current_session, _ := session.Store.Get(req, session.Name)
+		// Handling the "remember me"
+		if remember != "" {
+			updateInResponse(result, w)
+		}
+
+		// Set session username
+		current_session := session.Instance(req)
 		current_session.Values["username"] = result.Username
-		current_session.Save(req, w)
-		nextView = "/feed"
+		err = current_session.Save(req, w)
+		if err != nil {
+			errMsg := "Failed to set session value: \n" + err.Error()
+			log.Println(errMsg)
+			http.SetCookie(w, &http.Cookie{
+				Name:  "errorMsg",
+				Value: errMsg,
+			})
+			http.Redirect(w, req, "/login?target="+target, http.StatusSeeOther)
+			return
+		}
+		log.Println("Setting session username to: " + username)
 	}
 
 	log.Println("Redirecting to view: " + nextView)
@@ -310,6 +319,7 @@ func ProcessLogout(w http.ResponseWriter, req *http.Request) {
 	// Delete cookies
 	http.SetCookie(w, &http.Cookie{Name: "username", MaxAge: -1, Path: "/"})
 	http.SetCookie(w, &http.Cookie{Name: session.Name, MaxAge: -1, Path: "/"})
+	http.SetCookie(w, &http.Cookie{Name: "user", MaxAge: -1, Path: "/"})
 
 	log.Println("Successfully logged out, redirecting to login page....")
 	http.Redirect(w, req, "/login", http.StatusSeeOther)
@@ -688,7 +698,7 @@ func GetProfileImageFromUsername(username string) string {
 	return username + ".png"
 }
 
-func createFromRequest(req *http.Request) (*User, error) {
+func createFromRequest(req *http.Request) (*models.User, error) {
 	cookie, err := req.Cookie("user")
 	if err != nil {
 		log.Println("No user cookie.")
@@ -702,7 +712,7 @@ func createFromRequest(req *http.Request) (*User, error) {
 		return nil, err
 	}
 
-	var user User
+	var user models.User
 	if err := json.Unmarshal(decoded, &user); err != nil {
 		log.Println("Error unmarshaling user from cookie:", err)
 		return nil, err
@@ -712,7 +722,7 @@ func createFromRequest(req *http.Request) (*User, error) {
 	return &user, nil
 }
 
-func updateInResponse(currentUser interface{}, w http.ResponseWriter) error {
+func updateInResponse(currentUser models.User, w http.ResponseWriter) error {
 	userJSON, err := json.Marshal(currentUser)
 	if err != nil {
 		return err
