@@ -36,8 +36,8 @@ To run the container, clone the respository and in the project folder run this:
 
     docker compose up -d
 
-For development, comment out the last line of the `Dockerfile` and then uncomment the `CMD ["npm","run","devStart"]` line.
-Then run:
+For development
+Run:
 
     docker compose up -d
     docker compose watch
