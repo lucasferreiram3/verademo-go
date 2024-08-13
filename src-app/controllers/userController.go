@@ -254,7 +254,7 @@ func ProcessTotp(w http.ResponseWriter, req *http.Request) {
 	totpCode := req.FormValue("totpCode")
 	current_session, _ := session.Store.Get(req, session.Name)
 	username, ok := current_session.Values["totp_username"].(string)
-	log.Println("Entering ProcessTotp with username: " + username + "and code: " + totpCode)
+	log.Println("Entering ProcessTotp with username: " + username + " and code: " + totpCode)
 
 	if !ok || username == "" {
 		log.Println("Username not found, Redirecting to login...")
@@ -280,26 +280,24 @@ func ProcessTotp(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Println("Found TOTP!")
+	log.Println(totpCode)
 	totpValid := totp.Validate(totpCode, totpSecret)
 
 	if totpValid {
 		log.Println("TOTP validation success!")
 		current_session.Values["username"] = username
-		delete(current_session.Values, "totp_username")
+		http.SetCookie(w, &http.Cookie{Name: "totp_username", MaxAge: -1, Path: "/"})
+		current_session.Save(req, w)
 		nextView = "/feed"
 	} else {
 		log.Println("TOTP validation failure!")
 		http.SetCookie(w, &http.Cookie{Name: "username", MaxAge: -1, Path: "/"})
 		http.SetCookie(w, &http.Cookie{Name: "totp_username", MaxAge: -1, Path: "/"})
+		current_session.Save(req, w)
 		nextView = "/login"
 	}
+	log.Println("Redirecting to view (TOTP): " + nextView)
 
-	err = current_session.Save(req, w)
-	if err != nil {
-		log.Println("Error saving session:", err)
-		http.Error(w, "An error occurred", http.StatusInternalServerError)
-		return
-	}
 	http.Redirect(w, req, nextView, http.StatusSeeOther)
 
 }
