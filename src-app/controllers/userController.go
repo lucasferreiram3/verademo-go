@@ -2,9 +2,7 @@ package controllers
 
 import (
 	"context"
-	"crypto/md5"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"log"
@@ -14,6 +12,7 @@ import (
 	"verademo-go/src-app/models"
 	sqlite "verademo-go/src-app/shared/db"
 	session "verademo-go/src-app/shared/session"
+	"verademo-go/src-app/shared/utils"
 	view "verademo-go/src-app/shared/view"
 
 	"encoding/base64"
@@ -127,7 +126,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		BlabName     string
 	}{}
 
-	err = sqlite.DB.QueryRow(sqlQuery, username, GetMD5Hash(password)).Scan(
+	err = sqlite.DB.QueryRow(sqlQuery, username, utils.GetMD5Hash(password)).Scan(
 		&result.Username,
 		&result.PasswordHint,
 		&result.CreatedAt,
@@ -426,7 +425,7 @@ func ProcessRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	query := "insert into users (username, password, totp_secret, created_at, real_name, blab_name) values("
 	query += "'" + username + "',"
-	query += "'" + GetMD5Hash(password) + "',"
+	query += "'" + utils.GetMD5Hash(password) + "',"
 	query += "'" + secret.Secret() + "',"
 	query += "datetime('now'),"
 	query += "'" + realName + "',"
@@ -684,11 +683,6 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 	// 	}
 	// }
 
-}
-
-func GetMD5Hash(text string) string {
-	hash := md5.Sum([]byte(text))
-	return hex.EncodeToString(hash[:])
 }
 
 func GetProfileImageFromUsername(username string) string {

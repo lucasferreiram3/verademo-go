@@ -46,8 +46,14 @@
 	<div class="container theme-showcase" role="main">
 
 		<div class="page-header">
+			{{if .Error}}
+			<div class="alert alert-danger" role="alert">
+				{{.Error}}
+			</div>
+			{{end}}
 			<h3>Reset Blab Data</h3>
 		</div>
+		
 		<div class="row">
 			<div class="col-md-12">
 
