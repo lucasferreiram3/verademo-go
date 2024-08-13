@@ -74,7 +74,7 @@ func totpHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		controllers.ShowTotp(w, r)
 	} else if r.Method == "POST" {
-		//controllers.ProcessTotp(w, r)
+		controllers.ProcessTotp(w, r)
 	}
 
 }

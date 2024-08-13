@@ -183,7 +183,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 		current_session, _ := session.Store.Get(req, session.Name)
 		current_session.Values["totp_username"] = result.Username
 		current_session.Save(req, w)
-		nextView = "/totp"
+		nextView = "/totp?totp_username=" + result.Username
 	} else {
 		log.Println("Setting session username to: " + username)
 		current_session, _ := session.Store.Get(req, session.Name)
@@ -198,6 +198,13 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 }
 func ShowTotp(w http.ResponseWriter, req *http.Request) {
 	username := req.URL.Query().Get("totp_username")
+
+	if username == "" {
+		log.Println("Username not found, Redirecting to login")
+		http.Redirect(w, req, "/login", http.StatusSeeOther)
+		return
+	}
+
 	var totpSecret string
 	log.Println("Entering ShowTotp for : " + username)
 
@@ -215,7 +222,87 @@ func ShowTotp(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	view.Render(w, "totp.html", nil)
+	// If no secret generate TOTP
+	if totpSecret == "" {
+		secret, err := totp.Generate(totp.GenerateOpts{
+			Issuer:      "VeraDemo",
+			AccountName: username,
+		})
+		if err != nil {
+			log.Println("Error updating TOTP secret for user: ", err)
+			http.Error(w, "An error occurred", http.StatusInternalServerError)
+			return
+		}
+		totpSecret = secret.Secret()
+		_, err = sqlite.DB.Exec("UPDATE users SET totp_secret = ? WHERE username = ?", totpSecret, username)
+		if err != nil {
+			log.Println("Error updating TOTP secret for user: ", err)
+			http.Error(w, "An error occurred", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Generate TOTP code, pass it to form
+	data := map[string]interface{}{
+		"TotpSecret": totpSecret,
+		"Username":   username,
+	}
+
+	view.Render(w, "totp.html", data)
+}
+
+func ProcessTotp(w http.ResponseWriter, req *http.Request) {
+	totpCode := req.FormValue("totpCode")
+	current_session, _ := session.Store.Get(req, session.Name)
+	username, ok := current_session.Values["totp_username"].(string)
+	log.Println("Entering ProcessTotp with username: " + username + "and code: " + totpCode)
+
+	if !ok || username == "" {
+		log.Println("Username not found, Redirecting to login...")
+		http.Redirect(w, req, "/login", http.StatusSeeOther)
+		return
+	}
+
+	var nextView string
+	var totpSecret string
+	nextView = "/login"
+
+	sqlQuery := "SELECT totp_secret FROM users WHERE username = ?"
+
+	err := sqlite.DB.QueryRow(sqlQuery, username).Scan(&totpSecret)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Println("Failed to find TOTP secret in the database")
+			http.Redirect(w, req, "/login", http.StatusSeeOther)
+			return
+		}
+		log.Println("An Database Error has occured: ", err)
+		http.Error(w, "An error occurred", http.StatusInternalServerError)
+		return
+	}
+	log.Println("Found TOTP!")
+	totpValid := totp.Validate(totpCode, totpSecret)
+
+	if totpValid {
+		log.Println("TOTP validation success!")
+		current_session.Values["username"] = username
+		delete(current_session.Values, "totp_username")
+		nextView = "/feed"
+	} else {
+		log.Println("TOTP validation failure!")
+		http.SetCookie(w, &http.Cookie{Name: "username", MaxAge: -1, Path: "/"})
+		http.SetCookie(w, &http.Cookie{Name: "totp_username", MaxAge: -1, Path: "/"})
+		nextView = "/login"
+	}
+
+	err = current_session.Save(req, w)
+	if err != nil {
+		log.Println("Error saving session:", err)
+		http.Error(w, "An error occurred", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, req, nextView, http.StatusSeeOther)
+
 }
 
 func ProcessLogout(w http.ResponseWriter, req *http.Request) {
