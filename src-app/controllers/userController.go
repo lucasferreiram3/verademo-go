@@ -50,14 +50,13 @@ func ShowLogin(w http.ResponseWriter, req *http.Request) {
 	target := req.URL.Query().Get("target")
 	username := req.URL.Query().Get("username")
 
-	current_session, err := req.Cookie(session.Name)
-	if err == nil && current_session.Value != "" {
+	current_session, err := session.Store.Get(req, session.Name)
+	if err == nil && current_session.Values["username"] != nil {
 		log.Println("User is already logged in - redirecting...")
-		if target != "" {
-			http.Redirect(w, req, target, http.StatusFound)
-		} else {
-			http.Redirect(w, req, "/feed", http.StatusFound)
+		if target == "" || target == "/login" {
+			target = "/feed"
 		}
+		http.Redirect(w, req, target, http.StatusFound)
 		return
 	}
 
@@ -114,8 +113,8 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 
 	// Check inputs before processing Query
 	log.Println("Username: " + username + " Password: " + password)
-	// Constructing SQL Query
-	sqlQuery := "SELECT username, password_hint, created_at, last_login, real_name, blab_name FROM users WHERE username = ? AND password = ?"
+	// Constructing SQL Query, using COALESECE in case of null password hints (new totp users that are manually registered were running into sql errors, this rectifies that)
+	sqlQuery := "SELECT username, COALESCE(password_hint, '') as password_hint,  created_at, last_login, real_name, blab_name FROM users WHERE username = ? AND password = ?"
 
 	result := struct {
 		Username     string
@@ -257,7 +256,7 @@ func ProcessTotp(w http.ResponseWriter, req *http.Request) {
 	log.Println("Entering ProcessTotp with username: " + username + " and code: " + totpCode)
 
 	if !ok || username == "" {
-		log.Println("Username not found, Redirecting to login...")
+		log.Println("Username not found (TOTP), Redirecting to login...")
 		http.Redirect(w, req, "/login", http.StatusSeeOther)
 		return
 	}
@@ -279,21 +278,18 @@ func ProcessTotp(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "An error occurred", http.StatusInternalServerError)
 		return
 	}
-	log.Println("Found TOTP!")
-	log.Println(totpCode)
-	totpValid := totp.Validate(totpCode, totpSecret)
-
-	if totpValid {
-		log.Println("TOTP validation success!")
-		current_session.Values["username"] = username
-		http.SetCookie(w, &http.Cookie{Name: "totp_username", MaxAge: -1, Path: "/"})
-		current_session.Save(req, w)
+	if totp.Validate(totpCode, totpSecret) {
+		log.Println("TOTP validation success")
+		session, _ := session.Store.Get(req, session.Name)
+		session.Values["username"] = username
+		session.Save(req, w)
 		nextView = "/feed"
 	} else {
 		log.Println("TOTP validation failure!")
-		http.SetCookie(w, &http.Cookie{Name: "username", MaxAge: -1, Path: "/"})
-		http.SetCookie(w, &http.Cookie{Name: "totp_username", MaxAge: -1, Path: "/"})
-		current_session.Save(req, w)
+		session, _ := session.Store.Get(req, session.Name)
+		session.Values["username"] = nil
+		session.Values["totp_username"] = nil
+		session.Save(req, w)
 		nextView = "/login"
 	}
 	log.Println("Redirecting to view (TOTP): " + nextView)
