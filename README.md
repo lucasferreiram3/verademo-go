@@ -47,4 +47,21 @@ Navigate to [http://localhost:8000](http://localhost:8000).
 Then register as a new user and add some feeds.
 
 ## Run Locally
-TBD.....
+To run locally, you will need to install the latest version of [Golang](https://go.dev/dl/).
+
+To verify install, open command line/terminal and run:
+
+    go
+
+This should print all the go commands that are available, verifying that install was sucessful. 
+
+For local development:
+Run:
+
+    go run app.go
+
+Navigate to [http://localhost:8000](http://localhost:8000).
+
+Then register as a new user and add some feeds.
+
+
