@@ -55,9 +55,11 @@ To verify install, open command line/terminal and run:
 
 This should print all the go commands that are available, verifying that install was sucessful. 
 
+Now clone the repository to your machine.
+
 For local development:
 Run:
-
+    cd verademo-go
     go run app.go
 
 Navigate to [http://localhost:8000](http://localhost:8000).
