@@ -1,5 +1,7 @@
 package models
 
+import "verademo-go/src-app/shared/utils"
+
 type Blabber struct {
 	Id              int
 	Username        string `db:"username"`
@@ -8,4 +10,8 @@ type Blabber struct {
 	CreatedDate     string `db:"created_at"`
 	NumberListeners int
 	NumberListening int
+}
+
+func (blabber *Blabber) GetProfileImageFromUsername() string {
+	return utils.GetProfileImageFromUsername(blabber.Username)
 }

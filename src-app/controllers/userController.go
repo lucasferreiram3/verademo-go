@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -155,19 +154,8 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 
 	log.Println("User found.")
 
-	// Updating last login time
-	_, err = sqlite.DB.Exec("UPDATE users SET last_login=datetime('now') WHERE username='" + result.Username + "';")
-	if err != nil {
-		errMsg := "Error updating last login for user: \n" + err.Error()
-		log.Println(errMsg)
-		http.SetCookie(w, &http.Cookie{
-			Name:  "errorMsg",
-			Value: errMsg,
-		})
-		http.Redirect(w, req, "/login?target="+target, http.StatusSeeOther)
-		return
-		// http.Error(w, "An error occurred", http.StatusInternalServerError)
-	}
+	// Updating last login time (error probably doesn't matter)
+	sqlite.DB.Exec("UPDATE users SET last_login=datetime('now') WHERE username='" + result.Username + "';")
 
 	// TOTP Handling
 	if len(username) >= 4 && username[len(username)-4:] == "totp" {
@@ -454,18 +442,28 @@ func ProcessRegisterFinish(w http.ResponseWriter, r *http.Request) {
 
 func ShowProfile(w http.ResponseWriter, r *http.Request) {
 	// let type = req.query.type : Implement GET request reading
-	output := Output{}
+	var output Output
 	log.Println("Entering ShowProfile")
-	current_session := session.Instance(r)
-	username := current_session.Values["username"].(string)
 
-	// TODO: Fix page redirect without session
-	// Currently an old session is getting picked up that should not be.
-	fmt.Println(username)
-	if username == "" {
+	// Check session username
+	sess := session.Instance(r)
+
+	if sess.Values["username"] == nil {
 		log.Println("User is not Logged In - redirecting...")
-		http.Redirect(w, r, "login?target=profile", http.StatusSeeOther)
+		http.Redirect(w, r, "login?target=blabbers", http.StatusFound)
 		return
+	}
+
+	username := sess.Values["username"].(string)
+
+	// Set an error if one was given in response (usually taken from ProcessBlabbers)
+	resError, err := r.Cookie("errorMsg")
+	if err == nil {
+		output.Error = resError.Value
+		http.SetCookie(w, &http.Cookie{
+			Name:   "errorMsg",
+			MaxAge: -1,
+		})
 	}
 
 	sqlMyHecklers := "SELECT users.username, users.blab_name, users.created_at FROM users LEFT JOIN listeners ON users.username = listeners.listener WHERE listeners.blabber=? AND listeners.status='Active';"
@@ -473,17 +471,21 @@ func ShowProfile(w http.ResponseWriter, r *http.Request) {
 	hecklers := []models.Blabber{}
 	rows, err := sqlite.DB.Query(sqlMyHecklers, username)
 	if err != nil {
-		log.Println(err)
+		errMsg := "Error getting hecklers: \n" + err.Error()
+		log.Println(errMsg)
+		output.Error = errMsg
 		view.Render(w, "profile.html", output)
 		return
 	}
 
-	//Scans all results from query into the hecklers array
+	// Scans all results from query into the hecklers array
 	for rows.Next() {
 		i := models.Blabber{}
 		err = rows.Scan(&i.Username, &i.BlabName, &i.CreatedDate)
 		if err != nil {
-			log.Println("Error scanning sql data response")
+			errMsg := "Error scanning hecklers data: \n" + err.Error()
+			log.Println(errMsg)
+			output.Error = errMsg
 			view.Render(w, "profile.html", output)
 			return
 		}
@@ -495,7 +497,9 @@ func ShowProfile(w http.ResponseWriter, r *http.Request) {
 	log.Println(sqlMyEvents)
 	rows, err = sqlite.DB.Query(sqlMyEvents)
 	if err != nil {
-		log.Println("Couldn't retreive event history")
+		errMsg := "Error retrieving events history: \n" + err.Error()
+		log.Println(errMsg)
+		output.Error = errMsg
 		view.Render(w, "profile.html", output)
 		return
 	}
@@ -504,12 +508,13 @@ func ShowProfile(w http.ResponseWriter, r *http.Request) {
 		var i string
 		err = rows.Scan(&i)
 		if err != nil {
-			log.Println("Error scanning sql data response")
+			errMsg := "Error scanning events history data: \n" + err.Error()
+			log.Println(errMsg)
+			output.Error = errMsg
 			view.Render(w, "profile.html", output)
 			return
 		}
 		events = append(events, i)
-
 	}
 
 	sqlQuery := "SELECT username, real_name, blab_name, totp_secret FROM users WHERE username = '" + username + "'"
@@ -518,16 +523,20 @@ func ShowProfile(w http.ResponseWriter, r *http.Request) {
 	row := sqlite.DB.QueryRow(sqlQuery)
 
 	if err = row.Scan(&output.Username, &output.RealName, &output.BlabName, &output.TotpSecret); err == sql.ErrNoRows {
-		output.Error = "Access Denied: no user data found"
-		view.Render(w, "login.html", output)
-		return
-
+		if err != nil {
+			errMsg := "No user with username (" + username + ") found: \n" + err.Error()
+			log.Println(errMsg)
+			output.Error = errMsg
+			view.Render(w, "profile.html", output)
+			return
+		}
 	}
-	output.Image = GetProfileImageFromUsername(output.Username)
+
+	output.Image = utils.GetProfileImageFromUsername(output.Username)
+	log.Println(output.Image)
 	output.Events = events
 	output.Hecklers = hecklers
 	view.Render(w, "profile.html", output)
-
 }
 
 type JSONResponse struct {
@@ -540,7 +549,10 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 	realName := r.FormValue("realName")
 	blabName := r.FormValue("blabName")
 	username := r.FormValue("username")
-	// in, header, fileErr := req.FormFile("file")
+	// file, header, err := r.FormFile("file")
+	// if err != nil {
+
+	// }
 
 	// defer in.Close()
 	// out, err := os.OpenFile(header.Filename)
@@ -649,7 +661,7 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			return
 		}
-		oldImage := GetProfileImageFromUsername(oldUsername)
+		oldImage := utils.GetProfileImageFromUsername(oldUsername)
 		if oldImage != "" {
 
 			extension := oldImage[strings.LastIndex(oldImage, "."):]
@@ -678,7 +690,7 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	// Update user profile image
 	// if (fileErr == nil) {
-	// 	oldImage := GetProfileImageFromUsername(username)
+	// 	oldImage := utils.GetProfileImageFromUsername(username)
 	// 	if oldImage != "" {
 	// 		err := os.Remove(filepath.Join(dir,oldImage))
 	// 		if err != nil {
@@ -687,15 +699,6 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 	// 	}
 	// }
 
-}
-
-func GetProfileImageFromUsername(username string) string {
-	imageFiles := os.DirFS("/resources/images")
-	_, err := fs.ReadFile(imageFiles, username+".png")
-	if err != nil {
-		return ""
-	}
-	return username + ".png"
 }
 
 func createFromRequest(req *http.Request) (*models.User, error) {
