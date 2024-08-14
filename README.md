@@ -54,7 +54,6 @@ To verify install, open command line/terminal and run:
     go
 
 This should print all the go commands that are available, verifying that install was sucessful. 
-
 Now clone the repository to your machine.
 
 For local development:
