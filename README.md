@@ -55,8 +55,8 @@ To verify install, open command line/terminal and run:
 
 This should print all the go commands that are available, verifying that install was sucessful. 
 
-For local development:
-Run:
+Run the application:
+
     cd verademo-go
     go run app.go
 
