@@ -72,7 +72,7 @@ INSERT INTO blabs VALUES(68,'stuart','2024-06-27 17:41:13',replace('A man was ar
 INSERT INTO blabs VALUES(69,'clint','2024-06-27 17:41:13',replace('A man was in court for stealing a bag, took just 3 minutes to get sentenced, it was a briefcase \n','\n',char(10)));
 INSERT INTO blabs VALUES(70,'grant','2024-06-27 17:41:13',replace('The tiles, A,E,I,O,and U were discovered in a dead scrabble players stomach, vowel play is supected.\n','\n',char(10)));
 INSERT INTO blabs VALUES(71,'ben','2024-06-27 17:41:13','I was in a restaurant when I got hit in the head with a prawn cocktail, as I looked round, the waiter shouted, ''that''s for starters!!''');
-INSERT INTO blabs VALUES(72,'clyde','2024-07-29 14:14:05','E');
+INSERT INTO blabs VALUES(72,'clyde','2024-07-29 14:14:05','E is my favorite letter, said no one ever.');
 CREATE TABLE IF NOT EXISTS "comments" ("commentid" integer NOT NULL PRIMARY KEY, "blabid" integer NOT NULL, "blabber" text NOT NULL, "content" text NULL, "timestamp" datetime NULL);
 INSERT INTO comments VALUES(1,0,'scottrum',replace('Feel kind of indifferent about that one.\n','\n',char(10)),'2024-06-27 17:41:13');
 INSERT INTO comments VALUES(2,1,'paul',replace('I give that 4/10.\n','\n',char(10)),'2024-06-27 17:41:13');

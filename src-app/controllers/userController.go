@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 	"runtime"
 	"verademo-go/src-app/models"
@@ -116,6 +115,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 
 	// Check inputs before processing Query
 	log.Println("Username: " + username + " Password: " + password)
+	username = strings.ToLower(username)
 	// Constructing SQL Query, using COALESECE in case of null password hints (new totp users that are manually registered were running into sql errors, this rectifies that)
 	sqlQuery := "SELECT username, COALESCE(password_hint, '') as password_hint,  created_at, last_login, real_name, blab_name FROM users WHERE username = ? AND password = ?"
 
@@ -358,7 +358,7 @@ func ShowRegister(w http.ResponseWriter, r *http.Request) {
 func ProcessRegister(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Entering ProcessRegister")
-	username := r.FormValue("username")
+	username := strings.ToLower(r.FormValue("username"))
 	output := Output{Username: username}
 	// This might be an error due to incorrect pointer logic
 	if username == "" {
@@ -392,7 +392,7 @@ func ShowRegisterFinish(w http.ResponseWriter, r *http.Request) {
 }
 func ProcessRegisterFinish(w http.ResponseWriter, r *http.Request) {
 
-	username := r.FormValue("username")
+	username := strings.ToLower(r.FormValue("username"))
 	password := r.FormValue("password")
 	cpassword := r.FormValue("cpassword")
 	realName := r.FormValue("realName")
@@ -536,7 +536,6 @@ func ShowProfile(w http.ResponseWriter, r *http.Request) {
 	output.Image = utils.GetProfileImageFromUsername(output.Username)
 	output.Events = events
 	output.Hecklers = hecklers
-	output.Error = resError.Value
 	view.Render(w, "profile.html", output)
 }
 
@@ -562,19 +561,9 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Set directory for images
 	_, currentFile, _, ok := runtime.Caller(0)
-	if ok {
+	if !ok {
 		frame.Message = "<script>alert('Error getting current file path.');</script>"
-		response, err := json.Marshal(frame)
-		if err == nil {
-			errMsg := "Error getting current file path."
-			log.Println(errMsg)
-			http.SetCookie(w, &http.Cookie{
-				Name:  "errorMsg",
-				Value: errMsg,
-			})
-			http.Redirect(w, r, "profile", http.StatusSeeOther)
-			return
-		}
+		response, _ := json.Marshal(frame)
 		w.Header().Set("Content-type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(response)
@@ -582,6 +571,7 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	dir := filepath.Join(filepath.Dir(currentFile), "..", "..", "images")
 
+	// Check session username
 	current_session := session.Instance(r)
 	sessionUsername := current_session.Values["username"].(string)
 	if sessionUsername == "" {
@@ -590,25 +580,34 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO: Print out user agent
-	// log.Println("User is logged in - continuing... UA=" + )
-	log.Println("user logged in")
-	oldUsername := sessionUsername
+	log.Println("User is Logged In - continuing... UA=" + r.Header.Get("user-agent") + " U=" + sessionUsername)
+
+	oldUsername := strings.ToLower(sessionUsername)
+	newUsername := strings.ToLower(username)
+
+	// Update user's username, real name, and blab name
 	log.Println("Executing the update prepared statement")
-	result, err := sqlite.DB.Exec("UPDATE users SET real_name=?, blab_name=? WHERE username=?;", realName, blabName, sessionUsername)
-	// Nested statements for error handling
+	log.Println(oldUsername)
+	result, err := sqlite.DB.Exec("UPDATE users SET real_name=?, blab_name=? WHERE username=?;", realName, blabName, oldUsername)
 	if err != nil {
-		log.Println("Error updating user")
+		frame.Message = "<script>alert('Error updating user details: " + err.Error() + "');</script>"
+		response, _ := json.Marshal(frame)
+		w.Header().Set("Content-type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(response)
+		return
 	} else {
-		RowsAffected, err := result.RowsAffected()
+		rows, err := result.RowsAffected()
 		if err != nil {
-			log.Println(err)
-		} else if RowsAffected != 1 {
-			frame.Message = "<script>alert('An error occurred, please try again.');</script>"
-			response, err := json.Marshal(frame)
-			if err != nil {
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			}
+			frame.Message = "<script>alert('Error updating user details: " + err.Error() + "');</script>"
+			response, _ := json.Marshal(frame)
+			w.Header().Set("Content-type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(response)
+			return
+		} else if rows != 1 {
+			frame.Message = "<script>alert(" + fmt.Sprintf("'Expected to affect 1 row, affected %d.'", rows) + ");</script>"
+			response, _ := json.Marshal(frame)
 			w.Header().Set("Content-type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write(response)
@@ -616,97 +615,99 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//Rename profijle image if username changes
-	if !(username == oldUsername) {
-		exists := false
-		newUsername := strings.ToLower(username)
-
+	// Update username and also profile image if it changes
+	if newUsername != oldUsername {
 		log.Println("Preparing the duplicate username check Prepared Statement")
 		row := sqlite.DB.QueryRow("SELECT username FROM users WHERE username=?", newUsername)
-		var err error
 		if err = row.Scan(); err != sql.ErrNoRows {
-			log.Println("Username: " + username + " already exists. Try again")
-			exists = true
-
-		}
-		if exists {
+			log.Println("Username: " + newUsername + " already exists. Try again")
 			frame.Message = "<script>alert('That username already exists. Please try another.');</script>"
-			response, err := json.Marshal(frame)
-			if err != nil {
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			}
+			response, _ := json.Marshal(frame)
 			w.Header().Set("Content-type", "application/json")
-			w.WriteHeader(http.StatusConflict)
-			os.Stdout.Write(response)
+			w.WriteHeader(http.StatusInternalServerError)
 			w.Write(response)
 			return
 		}
 
-		//attempt to update username
-		oldUsername = strings.ToLower(oldUsername)
+		// Attempt to update username
 		log.Println("Creating Transaction")
 		tx, err := sqlite.DB.BeginTx(context.Background(), nil)
 		if err != nil {
 			log.Println(err)
 			return
 		}
-		//Call rollback when function is returned. If function returns early, transaction rolls back before being committed.
+
+		// Call rollback when function is returned. If function returns early, transaction rolls back before being committed.
 		defer tx.Rollback()
 
 		sqlStrQueries := []string{
-			"UPDATE users SET username='?' WHERE username='?'",
-			"UPDATE blabs SET blabber='?' WHERE blabber='?'",
-			"UPDATE comments SET blabber='?' WHERE blabber='?'",
-			"UPDATE listeners SET blabber='?' WHERE blabber='?'",
-			"UPDATE listeners SET listener='?' WHERE listener='?'",
-			"UPDATE users_history SET blabber='?' WHERE blabber='?'"}
+			"UPDATE users SET username=? WHERE username=?",
+			"UPDATE blabs SET blabber=? WHERE blabber=?",
+			"UPDATE comments SET blabber=? WHERE blabber=?",
+			"UPDATE listeners SET blabber=? WHERE blabber=?",
+			"UPDATE listeners SET listener=? WHERE listener=?",
+			"UPDATE users_history SET blabber=? WHERE blabber=?"}
 
 		log.Println("Executing Transactions")
-		for i := 0; i < len(sqlStrQueries); i++ {
-			_, err := tx.Exec(sqlStrQueries[i], newUsername, oldUsername)
+		for _, query := range sqlStrQueries {
+			result, err := tx.Exec(query, newUsername, oldUsername)
 			if err != nil {
-				log.Println(err)
-				frame.Message = "<script>alert('Database transactions failed');</script>"
-				response, e := json.Marshal(frame)
-				if e != nil {
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				}
+				frame.Message = "<script>alert('Error updating username: " + err.Error() + "');</script>"
+				response, _ := json.Marshal(frame)
 				w.Header().Set("Content-type", "application/json")
-				w.WriteHeader(http.StatusConflict)
-				os.Stdout.Write(response)
+				w.WriteHeader(http.StatusInternalServerError)
 				w.Write(response)
 				return
+			} else {
+				_, err := result.RowsAffected()
+				if err != nil {
+					frame.Message = "<script>alert('Error updating username: " + err.Error() + "');</script>"
+					response, _ := json.Marshal(frame)
+					w.Header().Set("Content-type", "application/json")
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write(response)
+					return
+				}
 			}
 		}
-		//Commit Transactions
+
+		// Commit Transactions
 		if err = tx.Commit(); err != nil {
-			log.Println(err)
+			frame.Message = "<script>alert('Error committing username update.');</script>"
+			response, _ := json.Marshal(frame)
+			w.Header().Set("Content-type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(response)
 			return
 		}
-		oldImage := utils.GetProfileImageFromUsername(oldUsername)
-		if oldImage != "" {
 
-			extension := oldImage[strings.LastIndex(oldImage, "."):]
-			newImage := newUsername + extension
-			log.Println("Renaming profile image from " + oldImage + " to " + newImage)
+		log.Println(dir)
 
-			e := os.Rename(filepath.Join(dir, oldImage), filepath.Join(dir, newImage))
-			if e != nil {
-				frame.Message = "<script>alert('An error occurred, please try again.');</script>"
-				response, err := json.Marshal(frame)
-				if err != nil {
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				}
-				w.Header().Set("Content-type", "application/json")
-				w.WriteHeader(http.StatusConflict)
-				os.Stdout.Write(response)
-				w.Write(response)
-				log.Fatal(e)
-			}
+		// oldImage := utils.GetProfileImageFromUsername(oldUsername)
+		// if oldImage != "" {
 
-		}
-		//Update session and cookie logic
-		current_session.Values["username"] = username
+		// 	extension := oldImage[strings.LastIndex(oldImage, "."):]
+		// 	newImage := newUsername + extension
+		// 	log.Println("Renaming profile image from " + oldImage + " to " + newImage)
+
+		// 	e := os.Rename(filepath.Join(dir, oldImage), filepath.Join(dir, newImage))
+		// 	if e != nil {
+		// 		frame.Message = "<script>alert('An error occurred, please try again.');</script>"
+		// 		response, err := json.Marshal(frame)
+		// 		if err != nil {
+		// 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		// 		}
+		// 		w.Header().Set("Content-type", "application/json")
+		// 		w.WriteHeader(http.StatusConflict)
+		// 		os.Stdout.Write(response)
+		// 		w.Write(response)
+		// 		log.Fatal(e)
+		// 	}
+
+		// }
+		// Update session and cookie logic
+		current_session.Values["username"] = newUsername
+		_ = current_session.Save(r, w)
 		//TODO: Update cookie logic and remember me func.
 
 	}
