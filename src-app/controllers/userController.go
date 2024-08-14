@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
 	"verademo-go/src-app/models"
@@ -640,6 +641,7 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 		// Call rollback when function is returned. If function returns early, transaction rolls back before being committed.
 		defer tx.Rollback()
 
+		// Update all instances of username
 		sqlStrQueries := []string{
 			"UPDATE users SET username=? WHERE username=?",
 			"UPDATE blabs SET blabber=? WHERE blabber=?",
@@ -681,34 +683,40 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Println(dir)
+		// Rename profile picture
+		oldImage := utils.GetProfileImageFromUsername(oldUsername)
+		if oldImage != "" {
+			extension := oldImage[strings.LastIndex(oldImage, "."):]
+			newImage := newUsername + extension
+			log.Println("Renaming profile image from " + oldImage + " to " + newImage)
+			err := os.Rename(filepath.Join(dir, oldImage), filepath.Join(dir, newImage))
+			if err != nil {
+				frame.Message = "<script>alert('Error renaming profile picture.');</script>"
+				response, _ := json.Marshal(frame)
+				w.Header().Set("Content-type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write(response)
+				return
+			}
+		}
 
-		// oldImage := utils.GetProfileImageFromUsername(oldUsername)
-		// if oldImage != "" {
-
-		// 	extension := oldImage[strings.LastIndex(oldImage, "."):]
-		// 	newImage := newUsername + extension
-		// 	log.Println("Renaming profile image from " + oldImage + " to " + newImage)
-
-		// 	e := os.Rename(filepath.Join(dir, oldImage), filepath.Join(dir, newImage))
-		// 	if e != nil {
-		// 		frame.Message = "<script>alert('An error occurred, please try again.');</script>"
-		// 		response, err := json.Marshal(frame)
-		// 		if err != nil {
-		// 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		// 		}
-		// 		w.Header().Set("Content-type", "application/json")
-		// 		w.WriteHeader(http.StatusConflict)
-		// 		os.Stdout.Write(response)
-		// 		w.Write(response)
-		// 		log.Fatal(e)
-		// 	}
-
-		// }
 		// Update session and cookie logic
 		current_session.Values["username"] = newUsername
 		_ = current_session.Save(r, w)
-		//TODO: Update cookie logic and remember me func.
+		user, err := createFromRequest(r)
+		if err != nil {
+			frame.Message = "<script>alert('Error updating cookies.');</script>"
+			response, _ := json.Marshal(frame)
+			w.Header().Set("Content-type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(response)
+			return
+		} else if user != nil {
+			user.Username = newUsername
+			user.RealName = realName
+			user.BlabName = blabName
+			updateInResponse(*user, w)
+		}
 
 	}
 	// Update user profile image
