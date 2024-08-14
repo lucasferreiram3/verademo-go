@@ -37,6 +37,7 @@ To run the container, clone the respository and in the project folder run this:
     docker compose up -d
 
 For development
+
 Run:
 
     docker compose up -d
@@ -47,4 +48,30 @@ Navigate to [http://localhost:8000](http://localhost:8000).
 Then register as a new user and add some feeds.
 
 ## Run Locally
-TBD.....
+To run locally, you will need to install the latest version of [Golang](https://go.dev/dl/).
+
+To verify install, open command line/terminal and run:
+
+    go
+
+This should print all the go commands that are available, verifying that install was sucessful. 
+
+Run the application:
+
+    cd verademo-go
+    go run app.go
+
+Navigate to [http://localhost:8000](http://localhost:8000).
+
+Then register as a new user and add some feeds.
+
+## Exploitations/Flaws
+
+See the [DEMO_NOTES](DEMO_NOTES.md) file for information on using this application with the various Veracode scan types.
+
+Also see the `docs` folder for in-depth explanations of the various exploits exposed in this application.
+
+## Technologies Used
+
+- Golang (v1.22.5)
+- [TOTP Library for GO by pquerna](https://github.com/pquerna/otp) 
