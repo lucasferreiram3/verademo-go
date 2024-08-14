@@ -48,14 +48,13 @@
 	<div class="container theme-showcase" role="main">
 
 		<div class="page-header">
+			{{if .Error}}
+			<div class="alert alert-danger" role="alert">
+				{{.Error}}
+			</div>
+			{{end}}
 			<h4>Profile</h4>
 		</div>
-
-		{{if .Error}}
-		<div class="alert alert-danger" role="alert">
-			{{.Error}}
-		</div>
-		{{end}}
 
 		<div class="row">
 

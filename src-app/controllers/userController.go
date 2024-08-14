@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"verademo-go/src-app/models"
 	sqlite "verademo-go/src-app/shared/db"
 	session "verademo-go/src-app/shared/session"
@@ -456,7 +457,7 @@ func ShowProfile(w http.ResponseWriter, r *http.Request) {
 
 	username := sess.Values["username"].(string)
 
-	// Set an error if one was given in response (usually taken from ProcessBlabbers)
+	// Set an error if one was given in response (usually taken from ProcessProfile)
 	resError, err := r.Cookie("errorMsg")
 	if err == nil {
 		output.Error = resError.Value
@@ -533,9 +534,9 @@ func ShowProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	output.Image = utils.GetProfileImageFromUsername(output.Username)
-	log.Println(output.Image)
 	output.Events = events
 	output.Hecklers = hecklers
+	output.Error = resError.Value
 	view.Render(w, "profile.html", output)
 }
 
@@ -549,6 +550,8 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 	realName := r.FormValue("realName")
 	blabName := r.FormValue("blabName")
 	username := r.FormValue("username")
+
+	frame := JSONResponse{}
 	// file, header, err := r.FormFile("file")
 	// if err != nil {
 
@@ -557,8 +560,27 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 	// defer in.Close()
 	// out, err := os.OpenFile(header.Filename)
 
-	//set directory for images
-	dir := "/resources/images/"
+	// Set directory for images
+	_, currentFile, _, ok := runtime.Caller(0)
+	if ok {
+		frame.Message = "<script>alert('Error getting current file path.');</script>"
+		response, err := json.Marshal(frame)
+		if err == nil {
+			errMsg := "Error getting current file path."
+			log.Println(errMsg)
+			http.SetCookie(w, &http.Cookie{
+				Name:  "errorMsg",
+				Value: errMsg,
+			})
+			http.Redirect(w, r, "profile", http.StatusSeeOther)
+			return
+		}
+		w.Header().Set("Content-type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(response)
+		return
+	}
+	dir := filepath.Join(filepath.Dir(currentFile), "..", "..", "images")
 
 	current_session := session.Instance(r)
 	sessionUsername := current_session.Values["username"].(string)
@@ -567,7 +589,7 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "login?target=profile", http.StatusSeeOther)
 		return
 	}
-	frame := JSONResponse{}
+
 	//TODO: Print out user agent
 	// log.Println("User is logged in - continuing... UA=" + )
 	log.Println("user logged in")
