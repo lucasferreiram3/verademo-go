@@ -3,6 +3,8 @@ package routes
 import (
 	"embed"
 	"net/http"
+	"path/filepath"
+	"runtime"
 	"verademo-go/src-app/controllers"
 
 	"github.com/gorilla/mux"
@@ -144,6 +146,8 @@ func Routes() *mux.Router {
 	router.HandleFunc("/password-hint", passwordHintHandler)
 	router.HandleFunc("/profile", profileHandler)
 	router.PathPrefix("/resources/").Handler(http.FileServer(http.FS(resources)))
+	_, currentFile, _, _ := runtime.Caller(0)
+	router.PathPrefix("/images/").Handler(http.StripPrefix("/images/", http.FileServer(http.Dir(filepath.Join(filepath.Dir(currentFile), "..", "..", "images")))))
 	http.Handle("/", router)
 
 	return router

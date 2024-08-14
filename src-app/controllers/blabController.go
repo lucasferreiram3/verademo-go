@@ -142,7 +142,7 @@ func MoreFeed(w http.ResponseWriter, r *http.Request) {
 	lenParam := r.URL.Query().Get("len")
 
 	// Template for response
-	template := "<li><div>" + "\t<div class=\"commenterImage\">" + "\t\t<img src=\"resources/images/%s.png\">" +
+	template := "<li><div>" + "\t<div class=\"commenterImage\">" + "\t\t<img src=\"images/%s\">" +
 		"\t</div>" + "\t<div class=\"commentText\">" + "\t\t<p>%s</p>" +
 		"\t\t<span class=\"date sub-text\">by %s on %s</span><br>" +
 		"\t\t<span class=\"date sub-text\"><a href=\"blab?blabid=%d\">%d Comments</a></span>" + "\t</div>" +
@@ -202,7 +202,7 @@ func MoreFeed(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		ret += fmt.Sprintf(template, author.Username, post.Content, author.BlabName, models.Timestamp(post.PostDate), post.ID, post.CommentCount)
+		ret += fmt.Sprintf(template, author.GetProfileImageFromUsername(), post.Content, author.BlabName, models.Timestamp(post.PostDate), post.ID, post.CommentCount)
 
 	}
 
