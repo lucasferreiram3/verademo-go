@@ -57,6 +57,7 @@ This should print all the go commands that are available, verifying that install
 
 For local development:
 Run:
+
     cd verademo-go
     go run app.go
 
