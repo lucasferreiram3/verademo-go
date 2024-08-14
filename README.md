@@ -64,4 +64,13 @@ Navigate to [http://localhost:8000](http://localhost:8000).
 
 Then register as a new user and add some feeds.
 
+## Exploitations/Flaws
 
+See the [DEMO_NOTES](DEMO_NOTES.md) file for information on using this application with the various Veracode scan types.
+
+Also see the `docs` folder for in-depth explanations of the various exploits exposed in this application.
+
+## Technologies Used
+
+- Golang (v1.22.5)
+- [TOTP Library for GO by pquerna](https://github.com/pquerna/otp) 
