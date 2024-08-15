@@ -119,7 +119,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	log.Println("Username: " + username + " Password: " + password)
 	username = strings.ToLower(username)
 	// Constructing SQL Query, using COALESECE in case of null password hints (new totp users that are manually registered were running into sql errors, this rectifies that)
-	sqlQuery := "SELECT username, COALESCE(password_hint, '') as password_hint,  created_at, last_login, real_name, blab_name FROM users WHERE username = ? AND password = ?"
+	sqlQuery := "SELECT username, COALESCE(password_hint, '') as password_hint,  created_at, COALESCE(last_login, '') as last_login, real_name, blab_name FROM users WHERE username = ? AND password = ?"
 
 	var result models.User
 
@@ -333,19 +333,29 @@ func ShowPasswordHint(w http.ResponseWriter, req *http.Request) {
 	err := sqlite.DB.QueryRow(sqlQuery, username).Scan(&passwordHint)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			http.Error(w, "No password found for "+username, http.StatusNotFound)
+			formatString := fmt.Sprintf("No password found for %s", username)
+			log.Println(formatString)
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(formatString))
 		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("Error querying database"))
 			log.Println("Error querying database:", err)
 			http.Error(w, "ERROR!", http.StatusInternalServerError)
 		}
 		return
 	}
 
-	if len(passwordHint) > 0 {
+	if len(passwordHint) > 1 {
 		formatString := fmt.Sprintf("Username '%s' has password: %s%s", username, passwordHint[:2], strings.Repeat("*", len(passwordHint)-2))
 		log.Println(formatString)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(fmt.Sprintf(`"%s"`, formatString)))
+		w.Write([]byte(formatString))
+	} else if len(passwordHint) == 1 {
+		formatString := fmt.Sprintf("Username '%s' has password: %s", username, passwordHint)
+		log.Println(formatString)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(formatString))
 	} else {
 		http.Error(w, "No password found for "+username, http.StatusNotFound)
 	}
