@@ -77,7 +77,7 @@
 												<input type="file" class="form-control" name="file" />
 											</div>
 											<div>
-												<a href="downloadprofileimage?image={{.Image}}">
+												<a id="dllink" href="downloadprofileimage?image={{.Image}}">
 													Download Current Image
 												</a>
 											</div>
@@ -211,6 +211,7 @@
 								$('input[name="' + key + '"]').val(val);
 								if (key === "username") {
 									$('#profileImage').attr('src', 'images/' + val + '.png?' + (new Date()).getTime());
+									$('#dllink').attr('href', 'downloadprofileimage?image=' + val + '.png')
 								}
 							});
 						}
