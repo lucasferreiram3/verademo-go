@@ -783,6 +783,29 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 	w.Write(response)
 }
 
+func DownloadImage(w http.ResponseWriter, r *http.Request) {
+	// Check session username
+	current_session := session.Instance(r)
+	sessionUsername := current_session.Values["username"].(string)
+	if sessionUsername == "" {
+		log.Println("User is not logged in - redirecting...")
+		http.Redirect(w, r, "login?target=profile", http.StatusSeeOther)
+		return
+	}
+
+	log.Println("User is Logged In - continuing... UA=" + r.Header.Get("user-agent") + " U=" + sessionUsername)
+
+	// Find the file
+	imageName := r.URL.Query().Get("image")
+	imagePath := filepath.Join("images", imageName)
+
+	// Serve the file
+	log.Println("Fetching profile image at path: " + imagePath)
+	w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(imagePath))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	http.ServeFile(w, r, imagePath)
+}
+
 func createFromRequest(req *http.Request) (*models.User, error) {
 	cookie, err := req.Cookie("user")
 	if err != nil {

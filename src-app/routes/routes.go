@@ -145,6 +145,7 @@ func Routes() *mux.Router {
 	router.HandleFunc("/register-finish", registerFinishHandler)
 	router.HandleFunc("/password-hint", passwordHintHandler)
 	router.HandleFunc("/profile", profileHandler)
+	router.HandleFunc("/downloadprofileimage", controllers.DownloadImage)
 	router.PathPrefix("/resources/").Handler(http.FileServer(http.FS(resources)))
 	_, currentFile, _, _ := runtime.Caller(0)
 	router.PathPrefix("/images/").Handler(http.StripPrefix("/images/", http.FileServer(http.Dir(filepath.Join(filepath.Dir(currentFile), "..", "..", "images")))))
