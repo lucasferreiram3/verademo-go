@@ -7,6 +7,6 @@ COPY . .
 
 RUN go mod download
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o app .
+RUN CGO_ENABLED=1 GOOS=linux go build -o app . && apt update && apt-get install -y iputils-ping 
 
 CMD ["/app/app"]
