@@ -71,6 +71,6 @@ func ProcessReset(w http.ResponseWriter, r *http.Request) {
 		view.Render(w, "reset.html", outputs)
 		return
 	}
-
+	log.Println("Database reset successful.")
 	view.Render(w, "reset.html", outputs)
 }
