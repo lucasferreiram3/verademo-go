@@ -210,7 +210,7 @@
 							$.each(data.Values, function(key, val) {
 								$('input[name="' + key + '"]').val(val);
 								if (key === "username") {
-									$('#profileImage').attr('src', 'images/' + val + '.png?');
+									$('#profileImage').attr('src', 'images/' + val + '.png?' + (new Date()).getTime());
 								}
 							});
 						}
