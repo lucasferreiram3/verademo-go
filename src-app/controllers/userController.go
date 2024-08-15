@@ -118,7 +118,7 @@ func ProcessLogin(w http.ResponseWriter, req *http.Request) {
 	log.Println("Username: " + username + " Password: " + password)
 	username = strings.ToLower(username)
 	// Constructing SQL Query, using COALESECE in case of null password hints (new totp users that are manually registered were running into sql errors, this rectifies that)
-	sqlQuery := "SELECT username, COALESCE(password_hint, '') as password_hint,  created_at, last_login, real_name, blab_name FROM users WHERE username = ? AND password = ?"
+	sqlQuery := "SELECT username, COALESCE(password_hint, '') as password_hint,  created_at, COALESCE(last_login, '') as last_login, real_name, blab_name FROM users WHERE username = ? AND password = ?"
 
 	var result models.User
 
