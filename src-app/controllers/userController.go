@@ -801,7 +801,7 @@ func DownloadImage(w http.ResponseWriter, r *http.Request) {
 
 	// Serve the file
 	log.Println("Fetching profile image at path: " + imagePath)
-	w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(imagePath))
+	w.Header().Set("Content-Disposition", "attachment; filename="+imageName)
 	w.Header().Set("Content-Type", "application/octet-stream")
 	http.ServeFile(w, r, imagePath)
 }
