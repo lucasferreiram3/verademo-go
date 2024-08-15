@@ -206,16 +206,16 @@
 				success : function(data) {
 					console.log("Profile updated");
 					if (data) {
-						if ('values' in data) {
-							$.each(data.values, function(key, val) {
+						if ('Values' in data) {
+							$.each(data.Values, function(key, val) {
 								$('input[name="' + key + '"]').val(val);
 								if (key === "username") {
-									$('#profileImage').attr('src', 'resources/images/' + val + '.png');
+									$('#profileImage').attr('src', 'images/' + val + '.png?');
 								}
 							});
 						}
 						if ('Message' in data) {
-							$('body').append(data.message);
+							$('body').append(data.Message);
 						}
 					}
 				},

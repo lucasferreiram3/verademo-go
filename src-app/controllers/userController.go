@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -542,6 +543,7 @@ func ShowProfile(w http.ResponseWriter, r *http.Request) {
 
 type JSONResponse struct {
 	Message string
+	Values  map[string]string
 }
 
 func ProcessProfile(w http.ResponseWriter, r *http.Request) {
@@ -552,13 +554,6 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 
 	frame := JSONResponse{}
-	// file, header, err := r.FormFile("file")
-	// if err != nil {
-
-	// }
-
-	// defer in.Close()
-	// out, err := os.OpenFile(header.Filename)
 
 	// Set directory for images
 	_, currentFile, _, ok := runtime.Caller(0)
@@ -588,7 +583,6 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Update user's username, real name, and blab name
 	log.Println("Executing the update prepared statement")
-	log.Println(oldUsername)
 	result, err := sqlite.DB.Exec("UPDATE users SET real_name=?, blab_name=? WHERE username=?;", realName, blabName, oldUsername)
 	if err != nil {
 		frame.Message = "<script>alert('Error updating user details: " + err.Error() + "');</script>"
@@ -719,17 +713,64 @@ func ProcessProfile(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
-	// Update user profile image
-	// if (fileErr == nil) {
-	// 	oldImage := utils.GetProfileImageFromUsername(username)
-	// 	if oldImage != "" {
-	// 		err := os.Remove(filepath.Join(dir,oldImage))
-	// 		if err != nil {
-	// 			log.Println("failed to remove existing file")
-	// 		}
-	// 	}
-	// }
 
+	// Get uploaded file if exists
+	newFile, _, err := r.FormFile("file")
+	if err == nil {
+		defer newFile.Close()
+
+		log.Println("Updating profile picture")
+		// Create a new file for the uploaded file
+		uploadFilePath := filepath.Join(dir, newUsername+".tmp")
+		destFile, err := os.Create(uploadFilePath)
+		if err != nil {
+			frame.Message = "<script>alert('Error creating temp file for upload: " + err.Error() + "');</script>"
+			response, _ := json.Marshal(frame)
+			w.Header().Set("Content-type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(response)
+			return
+		}
+		defer destFile.Close()
+
+		// Copy the uploaded file to the new file
+		_, err = io.Copy(destFile, newFile)
+		if err != nil {
+			frame.Message = "<script>alert('Error copying uploaded file data to temporary file: " + err.Error() + "');</script>"
+			response, _ := json.Marshal(frame)
+			w.Header().Set("Content-type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(response)
+			return
+		}
+
+		// Overwrite the old file with the new file
+		newFilePath := filepath.Join(dir, newUsername+".png")
+		err = os.Rename(uploadFilePath, newFilePath)
+		if err != nil {
+			frame.Message = "<script>alert('Error overwriting profile image with new one: " + err.Error() + "');</script>"
+			response, _ := json.Marshal(frame)
+			w.Header().Set("Content-type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(response)
+			return
+		}
+	} else if err != http.ErrMissingFile {
+		frame.Message = "<script>alert('Error reading uploaded file: " + err.Error() + "');</script>"
+		response, _ := json.Marshal(frame)
+		w.Header().Set("Content-type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(response)
+		return
+
+	}
+
+	frame.Message = fmt.Sprintf("<script>alert('Successfully changed values!\\nusername: %s\\nReal Name: %s\\nBlab Name: %s');</script>}", newUsername, realName, blabName)
+	frame.Values = map[string]string{"username": newUsername, "blabName": blabName, "realName": realName}
+	response, _ := json.Marshal(frame)
+	w.Header().Set("Content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(response)
 }
 
 func createFromRequest(req *http.Request) (*models.User, error) {
