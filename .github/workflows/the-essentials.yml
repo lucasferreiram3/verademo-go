@@ -117,7 +117,7 @@ jobs:
           vid: ${{ secrets.VERACODE_ID }}
           vkey: ${{ secrets.VERACODE_KEY }}
           file: "verademo-go.zip"
-          fail_build: "false"
+          fail_build: "true"
   
   
 
