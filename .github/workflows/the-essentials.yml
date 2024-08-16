@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  checkout-and-package:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -36,33 +36,6 @@ jobs:
         with: 
            name: scan-target
            path: verademo-go.zip
-           
-  upload-scan: 
-    needs: checkout-and-package
-    runs-on: ubuntu-latest
-    container: 
-      image: veracode/api-wrapper-java:latest
-      options: --user root
-      
-    steps: 
-      - name: get artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: scan-target
-
-        # Debugging steps
-      - name: debug
-        run: |
-          pwd
-          ls -l
-
-      - name: scan
-        run: |
-          java -jar /opt/veracode/api-wrapper.jar \
-            -vid ${{ secrets.VERACODE_API_ID }} -vkey ${{ secrets.VERACODE_API_KEY }} \
-            -action UploadAndScan -appname "verademo-go" -createprofile true \
-            -filepath verademo-go.zip -version "Github $GITHUB_RUN_NUMBER"
-        # continue-on-error: true
 
 # Steps above are the bare minimum.
 # Here below there are additional steps that are commonplace
@@ -113,15 +86,38 @@ jobs:
       - name: do container scan 
         uses: veracode/container_iac_secrets_scanning@v1.0.0
         with:
-          vid: ${{ secrets.VERACODE_API_ID }}
-          vkey: ${{ secrets.VERACODE_API_KEY }}
+          vid: ${{ secrets.VERACODE_ID }}
+          vkey: ${{ secrets.VERACODE_KEY }}
           command: "scan"
           type: "directory"
           source: "./"
           format: "table"
         
-  
-      
+  veracode-sast-pipeline-scan:
+    runs-on: ubuntu-latest
+    needs: [ build ]
+    name: veracode sast pipeline scan
+
+    steps:
+      - name: get artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: scan-target
+
+      # debugging steps can be handy...
+      - name: debug1
+        run: |
+          pwd
+          ls -l
+
+      - name: pipeline-scan action step
+        id: pipeline-scan
+        uses: veracode/Veracode-pipeline-scan-action@v1.0.16
+        with:
+          vid: ${{ secrets.VERACODE_ID }}
+          vkey: ${{ secrets.VERACODE_KEY }}
+          file: "verademo-go.zip"
+          fail_build: "false"
   
   
 
