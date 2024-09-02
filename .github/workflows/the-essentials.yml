@@ -62,7 +62,7 @@ jobs:
           vkey: ${{ secrets.VERACODE_KEY }}
           file: "verademo-go.zip"
   
-  Veracode-SAST-Pipeline-Scan:
+  Veracode-SAST-Pipeline-Scan2:
     runs-on: ubuntu-latest
     needs: [checkout-and-package]
     container:
