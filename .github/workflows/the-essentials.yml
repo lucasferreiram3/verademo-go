@@ -36,62 +36,6 @@ jobs:
         with: 
            name: scan-target
            path: verademo-go.zip
-
-# Steps above are the bare minimum.
-# Here below there are additional steps that are commonplace
-  sca-scan: 
-    needs: checkout-and-package
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: checkout code
-        uses: actions/checkout@v4
-        
-      - name: setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.14.0'
-
-      - name: debug1
-        run: | 
-          pwd 
-          ls -l
-
-      - name: do SCA scan
-        env: 
-          SRCCLR_API_TOKEN: ${{ secrets.SRCCLR_API_TOKEN }}
-        uses: veracode/veracode-sca@v2.1.12
-        with:
-          path: ./
-          create-issues: false
-
-      - name: display SCA results
-        run: |
-          cat scaResults.txt
-
-  container-scan: 
-    needs: checkout-and-package
-    runs-on: ubuntu-latest
-
-    steps: 
-      - name: checkout code
-        uses: actions/checkout@v4
-
-      - name: setup java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'zulu'
-          java-version: 8
-
-      - name: do container scan 
-        uses: veracode/container_iac_secrets_scanning@v1.0.0
-        with:
-          vid: ${{ secrets.VERACODE_ID }}
-          vkey: ${{ secrets.VERACODE_KEY }}
-          command: "scan"
-          type: "directory"
-          source: "./"
-          format: "table"
         
   veracode-sast-pipeline-scan:
     runs-on: ubuntu-latest
