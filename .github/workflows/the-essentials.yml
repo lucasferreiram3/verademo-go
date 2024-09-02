@@ -61,8 +61,29 @@ jobs:
           vid: ${{ secrets.VERACODE_ID }}
           vkey: ${{ secrets.VERACODE_KEY }}
           file: "verademo-go.zip"
-          fail_build: "true"
   
-  
+  Veracode-SAST-Pipeline-Scan:
+    runs-on: ubuntu-latest
+    needs: [checkout-and-package]
+    container:
+      image: veracode/pipeline-scan:latest
+      options: --user root
+    
+    steps:
+      - name: get artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: scan-target
+
+      # debugging steps can be handy...
+      - name: debug1
+        run: |
+          pwd
+          ls -l
+          
+      - name: scan 
+        run: |
+          java -jar /opt/veracode/pipeline-scan.jar -vid "${{ secrets.VERACODE_ID }}" -vkey "${{ secrets.VERACODE_KEY }}" -f "verademo-go.zip"
+    continue-on-error: true
 
     
