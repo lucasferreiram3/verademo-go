@@ -486,7 +486,7 @@ func ShowBlabbers(w http.ResponseWriter, r *http.Request) {
 		" SUM(iif(listeners.listener=?, 1, 0)) as listeners," +
 		" SUM(iif(listeners.status='Active',1,0)) as listening" +
 		" FROM users LEFT JOIN listeners ON users.username = listeners.blabber" +
-		" WHERE users.username NOT IN (\"admin\",\"admin-totp\",?)" + " GROUP BY users.username" + " ORDER BY " + sort + ";"
+		" WHERE users.username NOT IN ('admin','admin-totp',?)" + " GROUP BY users.username" + " ORDER BY " + sort + ";"
 
 	// Get the list of blabbers
 	log.Println("Executing query to get all blabbers")
@@ -641,7 +641,7 @@ func ProcessBlabbers(w http.ResponseWriter, r *http.Request) {
 
 	// Insert into event history
 	event := username + eventAction + blabberUsername + " (" + blabName + ")"
-	sqlQuery = "INSERT INTO users_history (blabber, event) VALUES (\"" + username + "\", \"" + event + "\")"
+	sqlQuery = "INSERT INTO users_history (blabber, event) VALUES ('" + username + "', '" + event + "')"
 	result, err = sqlite.DB.Exec(sqlQuery)
 	if err != nil {
 		errMsg := "Error adding event into history: \n" + err.Error()
